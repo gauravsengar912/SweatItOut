@@ -1,17 +1,12 @@
 export const storage = {
-  saveApiKey(key) {
-    localStorage.setItem("OPENAI_KEY", key);
+  set(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   },
-  getApiKey() {
-    return localStorage.getItem("OPENAI_KEY");
+  get(key) {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
   },
-  savePlan(plan) {
-    localStorage.setItem("WORKOUT_PLAN", plan);
-  },
-  getPlan() {
-    return localStorage.getItem("WORKOUT_PLAN");
-  },
-  clearPlan() {
-    localStorage.removeItem("WORKOUT_PLAN");
+  remove(key) {
+    localStorage.removeItem(key);
   }
 };
