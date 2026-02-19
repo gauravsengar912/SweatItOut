@@ -3,47 +3,65 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Workout Planner</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="manifest" href="manifest.json" />
+  <title>Lean Muscle Tracker</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="manifest" href="manifest.json"/>
 </head>
 <body>
 
-<h1>🏋️ Personalized Workout Planner</h1>
+<div id="app">
 
-<section id="apiKeySection">
-  <h3>Enter ChatGPT API Key</h3>
-  <input type="password" id="apiKeyInput" placeholder="sk-xxxx" />
-  <button id="saveApiKey">Save Key</button>
-</section>
+  <!-- Welcome Screen -->
+  <section id="welcomeScreen" class="screen active">
+    <h1>Lean Muscle Tracker</h1>
+    <p>Your AI Personal Fitness Coach</p>
+    <button id="startBtn">Get Started</button>
+  </section>
 
-<section id="userForm" class="hidden">
-  <h3>Your Details</h3>
+  <!-- API Key Screen -->
+  <section id="apiScreen" class="screen">
+    <h2>Enter OpenAI API Key</h2>
+    <input type="password" id="apiKeyInput" placeholder="sk-xxxx"/>
+    <button id="saveKeyBtn">Continue</button>
+  </section>
 
-  <input id="age" type="number" placeholder="Age" />
-  <input id="height" type="number" placeholder="Height (cm)" />
-  <input id="weight" type="number" placeholder="Weight (kg)" />
+  <!-- User Details -->
+  <section id="formScreen" class="screen">
+    <h2>Tell Us About You</h2>
+    <input type="number" id="age" placeholder="Age"/>
+    <input type="number" id="height" placeholder="Height (cm)"/>
+    <input type="number" id="weight" placeholder="Weight (kg)"/>
 
-  <select id="goal">
-    <option value="lean muscle">Lean Muscle</option>
-    <option value="fat loss">Fat Loss</option>
-    <option value="strength">Strength</option>
-  </select>
+    <select id="goal">
+      <option value="lean muscle">Lean Muscle</option>
+      <option value="fat loss">Fat Loss</option>
+      <option value="strength">Strength</option>
+    </select>
 
-  <select id="experience">
-    <option value="beginner">Beginner</option>
-    <option value="intermediate">Intermediate</option>
-    <option value="advanced">Advanced</option>
-  </select>
+    <select id="experience">
+      <option value="beginner">Beginner</option>
+      <option value="intermediate">Intermediate</option>
+      <option value="advanced">Advanced</option>
+    </select>
 
-  <button id="generatePlan">Generate My Plan</button>
-</section>
+    <button id="generateBtn">Generate Plan</button>
+  </section>
 
-<section id="planSection" class="hidden">
-  <h3>Your Plan</h3>
-  <pre id="planOutput"></pre>
-  <button id="editPlan">Edit / Regenerate</button>
-</section>
+  <!-- Loading -->
+  <section id="loadingScreen" class="screen">
+    <div class="spinner"></div>
+    <p>Building Your Personalized Plan...</p>
+  </section>
+
+  <!-- Plan Screen -->
+  <section id="planScreen" class="screen">
+    <h2>Your Personalized Plan</h2>
+    <div id="planContainer"></div>
+    <button id="regenerateBtn">Regenerate</button>
+    <button id="editBtn">Edit Details</button>
+  </section>
+
+</div>
 
 <script type="module" src="app.js"></script>
 </body>
