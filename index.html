@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workout App</title>
+
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    body {
+      margin: 0;
+      background: #0f0f0f;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      padding: 12px;
+    }
+
+    h1, h2 {
+      text-align: center;
+    }
+
+    section {
+      background: #1b1b1b;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background: #ff9800;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    .fade-in {
+      animation: fadeIn 0.8s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Workout cards */
+    .workout {
+      margin-top: 10px;
+    }
+
+    /* AI Coach */
+    .chat-output {
+      background: #000;
+      height: 200px;
+      overflow-y: auto;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .user-msg {
+      text-align: right;
+      color: #4caf50;
+      margin-bottom: 6px;
+    }
+
+    .ai-msg {
+      text-align: left;
+      color: #03a9f4;
+      margin-bottom: 6px;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5rem; }
+      .chat-output { height: 160px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<h1 class="fade-in">🏋️ Lean Muscle Workout</h1>
+
+<section class="fade-in">
+  <h2>Day 1 – Chest & Triceps</h2>
+  <div class="workout">
+    Bench Press – 4×8<br>
+    Incline Dumbbell Press – 3×10<br>
+    Cable Fly – 3×12<br>
+    Tricep Pushdown – 3×12
+  </div>
+</section>
+
+<section class="fade-in">
+  <h2>Day 2 – Back & Biceps</h2>
+  Pull-ups – 4×8<br>
+  Seated Row – 3×10<br>
+  Lat Pulldown – 3×12<br>
+  Barbell Curl – 3×10
+</section>
+
+<section class="fade-in">
+  <h2>Day 3 – Legs & Core</h2>
+  Leg Press – 4×10<br>
+  Bulgarian Split Squat – 3×8<br>
+  Hamstring Curl – 3×12<br>
+  Plank – 3×45 sec
+</section>
+
+<section class="fade-in">
+  <h2>Day 4 – Shoulders & Arms</h2>
+  Shoulder Press – 4×8<br>
+  Lateral Raises – 3×12<br>
+  Hammer Curls – 3×10<br>
+  Skull Crushers – 3×10
+</section>
+
+<section class="fade-in">
+  <h2>💬 AI Fitness Coach</h2>
+  <div class="chat-output" id="chatOutput"></div>
+
+  <div class="chat-input">
+    <input id="userInput" placeholder="Ask about workout, diet, fat loss…" />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</section>
+
+<script>
+  function sendMessage() {
+    const input = document.getElementById("userInput");
+    const output = document.getElementById("chatOutput");
+    const text = input.value.trim();
+    if (!text) return;
+
+    output.innerHTML += `<div class="user-msg">🧑 ${text}</div>`;
+    input.value = "";
+
+    setTimeout(() => {
+      output.innerHTML += `<div class="ai-msg">🤖 ${aiReply(text)}</div>`;
+      output.scrollTop = output.scrollHeight;
+    }, 400);
+  }
+
+  function aiReply(text) {
+    text = text.toLowerCase();
+
+    if (text.includes("chest")) return "Focus on progressive overload. Increase weight weekly.";
+    if (text.includes("diet")) return "Eat high protein: eggs, chicken, fish, whey.";
+    if (text.includes("fat")) return "Stay in calorie deficit and walk 8–10k steps.";
+    if (text.includes("rest")) return "Rest 1–2 days weekly and sleep 7–8 hours.";
+
+    return "Ask about workouts, diet, fat loss or recovery 💪";
+  }
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js");
+  }
+</script>
+
+</body>
+</html>
