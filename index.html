@@ -596,14 +596,16 @@ select.form-input{appearance:none;cursor:pointer}
     <div class="onboard-step" id="step-4">
       <div class="onboard-step-num">05 / 05</div>
       <h2>Connect AI</h2>
-      <p>FitForge uses Claude AI to generate your plan. Add your free API key from Anthropic.</p>
+      <p>FitForge uses Google Gemini AI to generate your plan — completely free, no credit card needed.</p>
       <div class="api-banner">
-        <strong>Get a free API key:</strong><br>
-        Visit <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → Create account → API Keys → Create Key. New users get free credits.
+        <strong>Get your FREE API key:</strong><br>
+        1. Visit <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a><br>
+        2. Sign in with Google → <strong>Get API Key → Create API Key</strong><br>
+        3. Copy &amp; paste it below. 100% free, no billing required.
       </div>
       <div class="form-group" style="margin-top:16px">
-        <label class="form-label">Anthropic API Key</label>
-        <input class="form-input" type="password" id="inp-apikey" placeholder="sk-ant-...">
+        <label class="form-label">Google Gemini API Key</label>
+        <input class="form-input" type="password" id="inp-apikey" placeholder="AIza...">
       </div>
       <div style="font-size:12px;color:var(--text3);line-height:1.5">🔒 Your key is stored only on this device and never shared.</div>
       <div class="step-dots">
@@ -962,7 +964,7 @@ function toggleChip(el, group) {
 // ============================================================
 async function generatePlan() {
   const key = document.getElementById('inp-apikey').value.trim();
-  if (!key) { alert('Please enter your Anthropic API key'); return; }
+  if (!key) { alert('Please enter your Google Gemini API key (get it free at aistudio.google.com)'); return; }
   state.apiKey = key;
   localStorage.setItem('ff_apikey', key);
 
@@ -1010,28 +1012,23 @@ Respond ONLY with valid JSON in this exact format:
 Include ${days} workout days (rest on remaining days). Use common exercises with proper names. Make it realistic for ${equipment} equipment.`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4000,
-        messages: [{role:'user', content: prompt}]
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 4000 }
       })
     });
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.error?.message || 'API error');
+      throw new Error(err.error?.message || 'API error — check your Gemini API key');
     }
 
     const data = await response.json();
-    const text = data.content[0].text;
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Empty response from Gemini');
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON in response');
 
@@ -1367,24 +1364,24 @@ Help them modify their workout plan, answer nutrition questions about Indian die
 When modifying the workout plan, clearly describe the changes. Be concise, practical, and motivating.
 If they ask to change the plan, describe the changes clearly and mention you've updated it.`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Build Gemini conversation history
+    const geminiContents = state.chatHistory.slice(-10).map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.apiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': state.apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: state.chatHistory.slice(-10)
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiContents,
+        generationConfig: { temperature: 0.8, maxOutputTokens: 1000 }
       })
     });
 
     const data = await response.json();
-    const reply = data.content?.[0]?.text || 'Sorry, I could not process that.';
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not process that.';
     removeTyping(typingId);
     appendMsg('ai', reply);
     state.chatHistory.push({role:'assistant', content: reply});
