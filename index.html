@@ -8,6 +8,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
+<script>
+  // Inline SW registration for GitHub Pages path compatibility
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+</script>
 <title>FitForge</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -610,6 +616,89 @@ body {
   #app { box-shadow: 0 0 80px rgba(0,0,0,0.5); }
   #nav-bar { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 }
+
+/* ===== INSTALL BANNER ===== */
+#install-banner {
+  display: none;
+  position: fixed;
+  bottom: 82px; left: 50%; transform: translateX(-50%) translateY(20px);
+  width: calc(100% - 32px); max-width: 448px;
+  background: linear-gradient(135deg, #141428 0%, #1a1a30 100%);
+  border: 1px solid rgba(0,229,160,0.35);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  z-index: 150;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,160,0.05);
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.4,0.64,1);
+  flex-direction: column; gap: 0;
+}
+#install-banner.visible {
+  display: flex;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.install-banner-row { display: flex; align-items: center; gap: 12px; width: 100%; }
+.install-banner-icon {
+  width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,229,160,0.3);
+}
+.install-banner-icon svg { width: 22px; height: 22px; color: #000; }
+.install-banner-text { flex: 1; min-width: 0; }
+.install-banner-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; }
+.install-banner-sub { color: var(--text2); font-size: 12px; margin-top: 1px; line-height: 1.4; }
+.install-banner-btns { display: flex; gap: 8px; align-items: center; margin-left: auto; flex-shrink: 0; }
+.btn-install {
+  padding: 9px 18px; background: var(--accent); border: none;
+  border-radius: 10px; color: #000; font-family: var(--font-head);
+  font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  transition: all 0.2s; box-shadow: 0 4px 14px rgba(0,229,160,0.3);
+  letter-spacing: 0.2px;
+}
+.btn-install:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,229,160,0.4); }
+.btn-install:active { transform: none; }
+.btn-dismiss {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; padding: 6px; display: flex; align-items: center;
+  transition: color 0.2s; border-radius: 8px;
+}
+.btn-dismiss:hover { color: var(--text); background: var(--surface3); }
+
+/* iOS INSTALL SHEET */
+#ios-install-sheet {
+  display: none; position: fixed; inset: 0; z-index: 250;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  align-items: flex-end; justify-content: center;
+}
+#ios-install-sheet.open { display: flex; }
+.ios-sheet {
+  background: var(--surface); border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 480px; padding: 8px 24px 44px;
+  animation: slideUp 0.35s ease;
+}
+.ios-sheet-handle { width: 40px; height: 4px; background: var(--surface3); border-radius: 2px; margin: 16px auto 20px; }
+.ios-sheet-title { font-family: var(--font-head); font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.ios-sheet-sub { color: var(--text2); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+.ios-steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+.ios-step { display: flex; align-items: flex-start; gap: 14px; }
+.ios-step-num {
+  width: 30px; height: 30px; border-radius: 50%; background: rgba(0,229,160,0.12);
+  border: 1px solid rgba(0,229,160,0.3); color: var(--accent);
+  font-family: var(--font-head); font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
+}
+.ios-step-text { font-size: 14px; line-height: 1.6; color: var(--text2); }
+.ios-step-text strong { color: var(--text); }
+.share-icon-inline {
+  display: inline-flex; align-items: center; vertical-align: middle;
+  background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.25);
+  border-radius: 6px; padding: 2px 6px; margin: 0 2px;
+  color: var(--accent);
+}
+.share-icon-inline svg { width: 14px; height: 14px; }
 </style>
 </head>
 <body>
@@ -1016,6 +1105,13 @@ What would you like to do?</div>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
+      <div class="setting-item" id="install-setting-btn" onclick="triggerInstall()" style="border-color:rgba(0,229,160,0.25);background:rgba(0,229,160,0.04)">
+        <div class="setting-item-left">
+          <div class="setting-icon">📲</div>
+          <div class="setting-label" style="color:var(--accent)">Install App</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--accent)"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
       <div class="setting-item" onclick="regeneratePlan()">
         <div class="setting-item-left">
           <div class="setting-icon">⚡</div>
@@ -1059,7 +1155,57 @@ What would you like to do?</div>
 
 </div>
 
-<!-- FOOD ADD MODAL -->
+<!-- INSTALL BANNER (Android / Desktop PWA) -->
+<div id="install-banner">
+  <div class="install-banner-row">
+    <div class="install-banner-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M6 5v14M10 5v14M14 5v14M18 5v14"/>
+        <rect x="2" y="7" width="20" height="10" rx="2" stroke-width="2" fill="none"/>
+      </svg>
+    </div>
+    <div class="install-banner-text">
+      <div class="install-banner-title">Install FitForge</div>
+      <div class="install-banner-sub">Add to home screen for the best experience</div>
+    </div>
+    <div class="install-banner-btns">
+      <button class="btn-install" onclick="triggerInstall()">Install</button>
+      <button class="btn-dismiss" onclick="dismissBanner()" aria-label="Dismiss">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS INSTALL SHEET -->
+<div id="ios-install-sheet">
+  <div class="ios-sheet">
+    <div class="ios-sheet-handle"></div>
+    <div class="ios-sheet-title">Install FitForge 📲</div>
+    <div class="ios-sheet-sub">Add FitForge to your Home Screen for a full-screen experience — no App Store needed.</div>
+    <div class="ios-steps">
+      <div class="ios-step">
+        <div class="ios-step-num">1</div>
+        <div class="ios-step-text">
+          Tap the <strong>Share button</strong>
+          <span class="share-icon-inline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </span>
+          at the bottom of your browser
+        </div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-num">2</div>
+        <div class="ios-step-text">Scroll down and tap <strong>"Add to Home Screen"</strong></div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-num">3</div>
+        <div class="ios-step-text">Tap <strong>"Add"</strong> in the top-right corner to confirm</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="closeIosSheet()">Got it!</button>
+  </div>
+</div>
 <div class="modal-overlay" id="food-modal">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -1991,6 +2137,101 @@ function showToast(msg, type) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.className = '', 3000);
 }
+
+// ============================================
+//  PWA SERVICE WORKER
+// ============================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+let deferredInstallPrompt = null;
+let bannerDismissed = false;
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function isInStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!bannerDismissed && !isInStandaloneMode()) {
+    showInstallBanner();
+  }
+  // Update the install button in profile to show it's ready
+  const btn = document.getElementById('install-setting-btn');
+  if (btn) btn.style.display = 'flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  hideInstallBanner();
+  deferredInstallPrompt = null;
+  showToast('FitForge installed! 🎉', 'success');
+  // Hide install button in profile after install
+  const btn = document.getElementById('install-setting-btn');
+  if (btn) btn.style.display = 'none';
+});
+
+function showInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  banner.style.display = 'flex';
+  // Trigger transition on next frame
+  requestAnimationFrame(() => requestAnimationFrame(() => banner.classList.add('visible')));
+}
+
+function hideInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  banner.classList.remove('visible');
+  setTimeout(() => { banner.style.display = 'none'; }, 400);
+}
+
+function dismissBanner() {
+  bannerDismissed = true;
+  hideInstallBanner();
+}
+
+function triggerInstall() {
+  if (isInStandaloneMode()) {
+    showToast('Already installed! ✅', 'success');
+    return;
+  }
+  if (deferredInstallPrompt) {
+    hideInstallBanner();
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(choice => {
+      if (choice.outcome === 'accepted') {
+        deferredInstallPrompt = null;
+      }
+    });
+  } else if (isIOS()) {
+    document.getElementById('ios-install-sheet').classList.add('open');
+  } else {
+    showToast('Use your browser menu → "Add to Home Screen"', 'success');
+  }
+}
+
+function closeIosSheet() {
+  document.getElementById('ios-install-sheet').classList.remove('open');
+}
+
+// Show iOS hint automatically on first visit in Safari
+if (isIOS() && !isInStandaloneMode() && !localStorage.getItem('ios_hint_shown')) {
+  localStorage.setItem('ios_hint_shown', '1');
+  setTimeout(() => showInstallBanner(), 2500);
+}
+// Show banner on non-iOS if not installed and not dismissed
+if (!isIOS() && !isInStandaloneMode() && !bannerDismissed) {
+  // Banner shows automatically via beforeinstallprompt event if supported
+}
+
+// ============================================
+//  PWA SERVICE WORKER (end)
+// ============================================
 
 // ============================================
 //  BOOT
