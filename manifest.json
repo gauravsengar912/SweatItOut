@@ -1,0 +1,35 @@
+{
+  "name": "FitForge AI",
+  "short_name": "FitForge",
+  "description": "AI-powered workout planner and Indian diet tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08080e",
+  "theme_color": "#00e5a0",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%2308080e'/><text x='50%' y='55%' font-size='110' text-anchor='middle' dominant-baseline='middle'>⚡</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%2308080e'/><text x='50%' y='55%' font-size='300' text-anchor='middle' dominant-baseline='middle'>⚡</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Workout Plan",
+      "url": "/?screen=workout",
+      "description": "View your workout plan"
+    },
+    {
+      "name": "Calorie Tracker",
+      "url": "/?screen=diet",
+      "description": "Track your calories"
+    }
+  ]
+}
