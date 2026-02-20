@@ -16,6 +16,7 @@
 </script>
 <title>FitForge</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
 <style>
 :root {
   --bg: #08080f;
@@ -733,13 +734,12 @@ body {
       <div class="step-dot active"></div>
       <div class="step-dot"></div>
       <div class="step-dot"></div>
-      <div class="step-dot"></div>
     </div>
 
     <!-- STEP 1: Basic Info -->
     <div class="step" id="step-1">
       <div class="step-header">
-        <div class="step-number">Step 1 of 4</div>
+        <div class="step-number">Step 1 of 3</div>
         <div class="step-title">Let's know<br>your basics</div>
       </div>
       <div class="field">
@@ -769,7 +769,7 @@ body {
     <!-- STEP 2: Body Metrics -->
     <div class="step" id="step-2" style="display:none">
       <div class="step-header">
-        <div class="step-number">Step 2 of 4</div>
+        <div class="step-number">Step 2 of 3</div>
         <div class="step-title">Your body<br>metrics</div>
       </div>
       <div class="field">
@@ -802,8 +802,8 @@ body {
     <!-- STEP 3: Goals & Schedule -->
     <div class="step" id="step-3" style="display:none">
       <div class="step-header">
-        <div class="step-number">Step 3 of 4</div>
-        <div class="step-title">Goals &<br>schedule</div>
+        <div class="step-number">Step 3 of 3</div>
+        <div class="step-title">Goals, schedule<br>& diet</div>
       </div>
       <div class="field">
         <label>Primary Goal</label>
@@ -845,27 +845,6 @@ body {
           <div class="toggle-opt" data-val="advanced" onclick="selectToggle(this,'level')">Pro</div>
         </div>
       </div>
-      <div class="step-nav">
-        <button class="btn btn-ghost" onclick="nextStep(2)" style="flex:1">← Back</button>
-        <button class="btn btn-primary" onclick="nextStep(4)" style="flex:2">Continue →</button>
-      </div>
-    </div>
-
-    <!-- STEP 4: API Key -->
-    <div class="step" id="step-4" style="display:none">
-      <div class="step-header">
-        <div class="step-number">Step 4 of 4</div>
-        <div class="step-title">Connect AI</div>
-      </div>
-      <div class="api-notice">
-        🔑 Enter your <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a> to power AI workout generation. Your key stays on your device — never sent to any server except OpenAI.
-      </div>
-      <div class="field">
-        <label>OpenAI API Key</label>
-        <div class="input-wrap">
-          <input type="password" id="f-apikey" placeholder="sk-..." autocomplete="off" />
-        </div>
-      </div>
       <div class="field">
         <label>Dietary Preference</label>
         <div class="toggle-group">
@@ -875,7 +854,7 @@ body {
         </div>
       </div>
       <div class="step-nav">
-        <button class="btn btn-ghost" onclick="nextStep(3)" style="flex:1">← Back</button>
+        <button class="btn btn-ghost" onclick="nextStep(2)" style="flex:1">← Back</button>
         <button class="btn btn-primary" onclick="completeOnboarding()" style="flex:2">Generate My Plan ⚡</button>
       </div>
     </div>
@@ -1023,15 +1002,16 @@ body {
   <div class="screen" id="screen-ai">
     <div class="ai-header">
       <div class="ai-title">AI Coach</div>
-      <div class="ai-subtitle">Chat with your personal fitness AI</div>
+      <div class="ai-subtitle">Powered by <span style="color:var(--accent);font-weight:600">Puter.js</span> — 100% free, no API key needed</div>
     </div>
 
     <div class="chat-area" id="chat-area">
       <div class="chat-msg ai">
-        <div class="msg-bubble">Hey! 👋 I'm your FitForge AI Coach. I can help you:
+        <div class="msg-bubble">Hey! 👋 I'm your FitForge AI Coach, powered by Puter.js — completely free, no API key needed!
 
+I can help you:
 • Generate or modify your workout plan
-• Create a custom diet plan
+• Create a custom Indian diet plan
 • Answer fitness & nutrition questions
 • Track your progress
 
@@ -1098,13 +1078,6 @@ What would you like to do?</div>
 
     <div class="setting-group">
       <div class="setting-group-title">Settings</div>
-      <div class="setting-item" onclick="updateApiKey()">
-        <div class="setting-item-left">
-          <div class="setting-icon">🔑</div>
-          <div class="setting-label">Update API Key</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>
       <div class="setting-item" id="install-setting-btn" onclick="triggerInstall()" style="border-color:rgba(0,229,160,0.25);background:rgba(0,229,160,0.04)">
         <div class="setting-item-left">
           <div class="setting-icon">📲</div>
@@ -1364,16 +1337,13 @@ async function completeOnboarding() {
   const weight = parseInt(document.getElementById('f-weight').value);
   const target = parseInt(document.getElementById('f-target').value);
   const days = parseInt(document.getElementById('f-days').value);
-  const apiKey = document.getElementById('f-apikey').value.trim();
 
   if (!name || !age || !height || !weight) { showToast('Please fill all fields', 'error'); return; }
-  if (!apiKey) { showToast('API key required for AI features', 'error'); return; }
 
   const bmi = (weight / ((height / 100) ** 2)).toFixed(1);
   const tdee = Math.round(calculateTDEE(weight, height, age, onboardingData.sex, 'moderate'));
 
   state.profile = { name, age, height, weight, target, days, bmi, tdee, ...onboardingData };
-  state.apiKey = apiKey;
   saveState();
 
   showLoading('Generating your AI plan...', 'This takes about 30 seconds');
@@ -1381,6 +1351,8 @@ async function completeOnboarding() {
     await generatePlan();
   } catch (e) {
     console.error(e);
+    state.plan = generateFallbackPlan();
+    saveState();
   }
   hideLoading();
 
@@ -1398,28 +1370,29 @@ function calculateTDEE(weight, height, age, sex, activity) {
 }
 
 // ============================================
-//  AI API
+//  AI API — Puter.js (Free, no API key needed)
 // ============================================
-async function callOpenAI(messages, maxTokens = 2000) {
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${state.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    }),
+async function callAI(messages, maxTokens = 2000) {
+  // Build a single prompt string from messages array
+  const systemMsg = messages.find(m => m.role === 'system');
+  const userMsgs = messages.filter(m => m.role !== 'system');
+
+  let prompt = '';
+  if (systemMsg) prompt += systemMsg.content + '\n\n';
+  userMsgs.forEach(m => {
+    if (m.role === 'user') prompt += 'User: ' + m.content + '\n';
+    else if (m.role === 'assistant') prompt += 'Assistant: ' + m.content + '\n';
   });
-  if (!resp.ok) {
-    const err = await resp.json();
-    throw new Error(err.error?.message || 'API error');
-  }
-  const data = await resp.json();
-  return data.choices[0].message.content;
+
+  const response = await puter.ai.chat(prompt, {
+    model: 'gpt-4o-mini',
+  });
+
+  // puter returns either a string or an object
+  if (typeof response === 'string') return response;
+  if (response?.message?.content) return response.message.content;
+  if (response?.content) return response.content;
+  return String(response);
 }
 
 async function generatePlan() {
@@ -1473,7 +1446,7 @@ Return a JSON object EXACTLY in this format (no markdown, pure JSON):
 Make exactly ${p.days} workout days and (7-${p.days}) rest days per week. Generate 2 weeks.`;
 
   try {
-    const raw = await callOpenAI([{ role: 'user', content: prompt }], 3000);
+    const raw = await callAI([{ role: 'user', content: prompt }], 3000);
     // Extract JSON
     let json = raw;
     const match = raw.match(/\{[\s\S]*\}/);
@@ -1780,7 +1753,7 @@ async function modifyPlan() {
   showLoading('Modifying your plan...', 'AI is updating');
   try {
     const prompt = `The user wants to modify their workout plan. Request: "${msg}". Here is the current plan as JSON: ${JSON.stringify(state.plan)}. Return the FULL updated plan in the same JSON format, only changing what was requested. Return only pure JSON, no markdown.`;
-    const raw = await callOpenAI([{ role: 'user', content: prompt }], 3000);
+    const raw = await callAI([{ role: 'user', content: prompt }], 3000);
     const match = raw.match(/\{[\s\S]*\}/);
     if (match) {
       state.plan = JSON.parse(match[0]);
@@ -2013,7 +1986,7 @@ async function sendChatMessage() {
       ...state.chatHistory.slice(-8),
     ];
 
-    const reply = await callOpenAI(messages, 1000);
+    const reply = await callAI(messages, 1000);
     state.chatHistory.push({ role: 'assistant', content: reply });
 
     // Remove typing
@@ -2032,11 +2005,7 @@ async function sendChatMessage() {
     }
   } catch(e) {
     document.getElementById(typingId)?.remove();
-    if (!state.apiKey) {
-      appendChatMsg('ai', '⚠️ No API key configured. Please add your OpenAI API key in Profile settings.');
-    } else {
-      appendChatMsg('ai', `⚠️ Error: ${e.message}`);
-    }
+    appendChatMsg('ai', `⚠️ AI error: ${e.message}. Please try again.`);
   }
 
   chatArea.scrollTop = chatArea.scrollHeight;
@@ -2072,14 +2041,7 @@ function showScreen(name) {
 //  SETTINGS
 // ============================================
 function updateApiKey() {
-  const key = prompt('Enter new OpenAI API key:');
-  if (key && key.startsWith('sk-')) {
-    state.apiKey = key;
-    saveState();
-    showToast('API key updated ✅', 'success');
-  } else if (key) {
-    showToast('Invalid API key format', 'error');
-  }
+  showToast('No API key needed — AI is powered by Puter.js for free! ✅', 'success');
 }
 
 async function regeneratePlan() {
@@ -2239,7 +2201,7 @@ if (!isIOS() && !isInStandaloneMode() && !bannerDismissed) {
 (function boot() {
   loadState();
 
-  if (state.profile && state.apiKey) {
+  if (state.profile) {
     // Already onboarded
     document.getElementById('screen-onboarding').classList.remove('active');
     document.getElementById('screen-home').classList.add('active');
