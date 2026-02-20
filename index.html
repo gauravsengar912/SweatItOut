@@ -66,6 +66,9 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 .sec-title{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin:24px 0 12px}
 /* Workout */
 .gen-banner{background:linear-gradient(135deg,#1a0800,#2d0f00);border:1px solid #3d1800;border-radius:var(--r);padding:20px;margin-bottom:20px}
+.day-tab{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px;cursor:pointer;white-space:nowrap;text-align:center;min-width:90px;flex-shrink:0;transition:all .2s}
+.day-tab:hover{border-color:var(--accent2)}
+.day-tab-active{background:linear-gradient(135deg,#3d1800,#2d0f00);border-color:var(--accent);color:var(--text)}
 .gen-banner h2{font-size:1.2rem;margin-bottom:6px}
 .gen-banner p{font-size:.85rem;color:var(--muted);margin-bottom:16px}
 .ex-card{background:var(--surface);border-radius:var(--r);margin-bottom:14px;overflow:hidden;border:1px solid var(--border)}
@@ -462,13 +465,6 @@ function finishOnboarding() {
 }
 
 // HELPERS
-function getText(raw) {
-  if (typeof raw === 'string') return raw;
-  if (raw && raw.message && raw.message.content && raw.message.content[0]) return raw.message.content[0].text || '';
-  if (raw && raw.text) return raw.text;
-  return '';
-}
-
 function stripMd(t) {
   t = t.trim();
   if (t.indexOf('```') === -1) return t;
@@ -486,26 +482,64 @@ function toast(msg, type) {
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
 }
 
-// PLAN GENERATION
-function generatePlan() {
+// AI HELPERS - uses Puter.js for seamless auth (no API key needed)
+
+function puterText(raw) {
+  if (typeof raw === 'string') return raw;
+  if (raw && raw.message && raw.message.content && raw.message.content[0]) return raw.message.content[0].text || '';
+  if (raw && raw.text) return raw.text;
+  return '';
+}
+
+async function aiChat(messages, system) {
+  // Prepend system as first user message if provided (puter doesn't have system param)
+  var msgs = messages.slice();
+  if (system && msgs.length > 0 && msgs[0].role === 'user') {
+    msgs = [{ role: 'user', content: '[SYSTEM]: ' + system + '\n\n---\n\n' + msgs[0].content }].concat(msgs.slice(1));
+  }
+  var raw = await puter.ai.chat(msgs, { model: 'claude-sonnet-4-5' });
+  return puterText(raw);
+}
+
+async function aiStream(messages, system, onChunk) {
+  var msgs = messages.slice();
+  if (system && msgs.length > 0 && msgs[0].role === 'user') {
+    msgs = [{ role: 'user', content: '[SYSTEM]: ' + system + '\n\n---\n\n' + msgs[0].content }].concat(msgs.slice(1));
+  }
+  var stream = await puter.ai.chat(msgs, { model: 'claude-sonnet-4-5', stream: true });
+  for await (var part of stream) {
+    if (part && part.text) onChunk(part.text);
+  }
+}
+
+async function generatePlan() {
   var p = S.profile;
-  var prompt = 'Personal fitness trainer. Create a ' + p.days + '-day/week plan.\n'
+  var numDays = parseInt(p.days) || 4;
+  var dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var sysPrompt = 'You are an expert personal fitness trainer. Return ONLY valid JSON, no markdown, no explanation.';
+  var userPrompt = 'Create a ' + numDays + '-day/week workout plan.\n'
     + 'Profile: ' + p.name + ', age ' + p.age + ', ' + p.gender + ', ' + p.weight + 'kg, ' + p.height + 'cm.\n'
     + 'Goal: ' + p.goal.replace('_',' ') + '. Level: ' + p.level + '.\n\n'
-    + 'Return ONLY a JSON object (no markdown, no explanation):\n'
-    + '{"planTitle":"...","planDescription":"...","exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"3 word giphy query"}]}\n'
-    + '5-7 exercises. gifSearch must be specific like "barbell squat form" or "push up workout".';
+    + 'Return this exact JSON structure:\n'
+    + '{"planTitle":"...","planDescription":"...","days":['
+    + '{"day":"Day 1","focus":"Chest & Triceps","exercises":['
+    + '{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"specific 3-word giphy query"}'
+    + ']}]}\n'
+    + 'Rules: ' + numDays + ' days total. 4-6 exercises per day. Each day has a different muscle focus. '
+    + 'gifSearch = specific fitness query like "barbell bench press" or "push up proper form".';
   document.getElementById('gen-status').textContent = 'Generating personalized workout...';
-  puter.ai.chat(prompt, {model:'claude-sonnet-4-5'}).then(function(raw){
-    S.plan = JSON.parse(stripMd(getText(raw)));
+  try {
+    var text = await aiChat([{role:'user', content:userPrompt}], sysPrompt);
+    S.plan = JSON.parse(stripMd(text));
+    S.activeDay = 0;
     save();
     document.getElementById('gen-overlay').style.display = 'none';
     initApp();
-  }).catch(function(){
+  } catch(e) {
     document.getElementById('gen-overlay').style.display = 'none';
-    toast('Error generating plan. Check connection.','error');
+    toast('Error generating plan: ' + e.message, 'error');
     initApp(true);
-  });
+  }
 }
 
 // INIT
@@ -531,35 +565,80 @@ function renderWorkout() {
   document.getElementById('wo-content').style.display = 'block';
   document.getElementById('plan-title').textContent = S.plan.planTitle || 'Your Plan';
   document.getElementById('plan-desc').textContent  = S.plan.planDescription || '';
-  var list = document.getElementById('ex-list');
-  list.innerHTML = '';
+  var days = S.plan.days || [];
+  var activeDay = S.activeDay || 0;
+
+  // Dashboard preview: today's day exercises
+  var todayExs = (days[activeDay] && days[activeDay].exercises) || [];
   var prev = '<div style="display:flex;flex-direction:column;gap:8px">';
-  (S.plan.exercises||[]).slice(0,3).forEach(function(ex){
+  todayExs.slice(0,3).forEach(function(ex){
     prev += '<div style="background:var(--surface);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between">'
       + '<span style="font-size:.9rem;font-weight:500">' + ex.name + '</span>'
       + '<span style="font-size:.8rem;color:var(--muted)">' + ex.sets + 'x' + ex.reps + '</span></div>';
   });
   prev += '</div>';
   document.getElementById('d-workout').innerHTML = prev;
-  (S.plan.exercises||[]).forEach(function(ex, i){
+
+  var list = document.getElementById('ex-list');
+  list.innerHTML = '';
+
+  // Day tabs
+  if (days.length > 1) {
+    var tabsWrap = document.createElement('div');
+    tabsWrap.style.cssText = 'display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:20px;scrollbar-width:none';
+    days.forEach(function(d, di) {
+      var tab = document.createElement('button');
+      tab.className = 'day-tab' + (di === activeDay ? ' day-tab-active' : '');
+      tab.innerHTML = '<span style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:2px">' + d.day + '</span>'
+        + '<span style="font-size:.8rem;font-weight:600">' + (d.focus || 'Training') + '</span>';
+      tab.onclick = (function(idx){ return function(){ S.activeDay = idx; save(); renderWorkout(); }; })(di);
+      tabsWrap.appendChild(tab);
+    });
+    list.appendChild(tabsWrap);
+  }
+
+  // Active day header
+  var activeDayData = days[activeDay] || {};
+  var dayHdr = document.createElement('div');
+  dayHdr.style.cssText = 'background:linear-gradient(135deg,#1a0800,#2d0f00);border:1px solid #3d1800;border-radius:16px;padding:16px 20px;margin-bottom:20px';
+  dayHdr.innerHTML = '<div style="font-size:.75rem;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">' + (activeDayData.day || 'Day') + '</div>'
+    + '<div style="font-family:Syne,sans-serif;font-size:1.2rem;font-weight:700">' + (activeDayData.focus || 'Training') + '</div>'
+    + '<div style="font-size:.8rem;color:var(--muted);margin-top:4px">' + ((activeDayData.exercises||[]).length) + ' exercises</div>';
+  list.appendChild(dayHdr);
+
+  // Exercises for active day
+  (activeDayData.exercises || []).forEach(function(ex, i) {
+    var key = 'd' + activeDay + 'e' + i;
     var c = document.createElement('div');
     c.className = 'ex-card';
-    c.innerHTML = '<div class="ex-head" onclick="toggleEx(' + i + ')">'
-      + '<div class="ex-num">' + (i+1) + '</div>'
-      + '<div class="ex-info"><div class="ex-name">' + ex.name + '</div>'
-      + '<div class="ex-meta">' + ex.sets + ' sets x ' + ex.reps + ' &middot; Rest: ' + ex.rest + '</div></div>'
-      + '<span class="ex-chevron" id="exc-' + i + '">&#x25BC;</span></div>'
-      + '<div class="ex-body" id="exb-' + i + '">'
-      + '<div class="ex-gif" id="exg-' + i + '"><span class="ex-hint">&#x25B2; Tap to load GIF</span></div>'
-      + '<div class="ex-tips">' + (ex.tips||'') + '</div></div>';
+
+    var head = document.createElement('div');
+    head.className = 'ex-head';
+    (function(k){ head.addEventListener('click', function(){ toggleEx(k); }); })(key);
+    head.innerHTML = '<div class="ex-num">' + (i+1) + '</div>'
+      + '<div class="ex-info">'
+      + '<div class="ex-name">' + ex.name + '</div>'
+      + '<div class="ex-meta">' + ex.sets + ' sets x ' + ex.reps + ' &middot; Rest: ' + ex.rest + '</div>'
+      + '</div>'
+      + '<span class="ex-chevron" id="exc-' + key + '">&#x25BC;</span>';
+    c.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'ex-body';
+    body.id = 'exb-' + key;
+    body.innerHTML = '<div class="ex-gif" id="exg-' + key + '"><span class="ex-hint">&#x25B2; Tap to load GIF</span></div>'
+      + '<div class="ex-tips">' + (ex.tips||'') + '</div>';
+    c.appendChild(body);
+
     list.appendChild(c);
   });
 }
 
-function toggleEx(i) {
-  var body = document.getElementById('exb-'+i);
-  var chev = document.getElementById('exc-'+i);
-  var gbox = document.getElementById('exg-'+i);
+function toggleEx(key) {
+  var body = document.getElementById('exb-'+key);
+  var chev = document.getElementById('exc-'+key);
+  var gbox = document.getElementById('exg-'+key);
+  if (!body) return;
   if (body.classList.contains('open')) {
     body.classList.remove('open');
     chev.style.transform = '';
@@ -568,7 +647,9 @@ function toggleEx(i) {
     chev.style.transform = 'rotate(180deg)';
     if (!gbox.dataset.loaded) {
       gbox.dataset.loaded = '1';
-      var ex = S.plan.exercises[i];
+      var parts = key.replace('d','').split('e');
+      var di = parseInt(parts[0]), ei = parseInt(parts[1]);
+      var ex = S.plan.days[di].exercises[ei];
       loadGif(gbox, ex.name, ex.gifSearch);
     }
   }
@@ -656,9 +737,9 @@ function setupSearch() {
         + 'Return 4-6 matching foods as a JSON array only (no markdown):\n'
         + '[{"name":"Food Name","cal":130,"protein":2.7,"carbs":28,"fat":0.3,"defaultQty":150,"defaultUnit":"g","per":"100g"}]\n'
         + 'cal/protein/carbs/fat are per 100g. Include Indian foods if relevant. Be accurate.';
-      puter.ai.chat(prompt, {model:'claude-sonnet-4-5'}).then(function(raw){
+      aiChat([{role:'user', content:prompt}]).then(function(text){
         if (lastQ !== q) return;
-        var results = JSON.parse(stripMd(getText(raw)));
+        var results = JSON.parse(stripMd(text));
         dd.innerHTML = '';
         results.forEach(function(food){
           var el = mkDD(
@@ -829,7 +910,7 @@ function refreshDash() {
 }
 
 // AI COACH
-function sendChat() {
+async function sendChat() {
   var inp = document.getElementById('chat-input');
   var msg = inp.value.trim();
   if (!msg) return;
@@ -838,36 +919,31 @@ function sendChat() {
   S.history.push({role:'user', content:msg});
   var el = addMsg('', 'ai');
   el.innerHTML = '<span class="spinner"></span>';
-  var ctx = 'AI fitness coach for ' + S.profile.name + ', goal: ' + S.profile.goal + ', level: ' + S.profile.level + '.\n'
-    + 'Exercises: ' + JSON.stringify((S.plan && S.plan.exercises || []).map(function(e){ return e.name; })) + '\n\n'
-    + 'To modify workout, respond then append:\nWORKOUT_JSON:{"exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"3-word giphy query"}]}\n'
-    + 'Keep responses concise.';
-  var hist = S.history.map(function(m, i){
-    if (i === 0 && m.role === 'user') return {role:'user', content:'[CTX]:' + ctx + '\n---\n' + m.content};
-    return m;
-  });
+  var allExNames = [];
+  if (S.plan && S.plan.days) {
+    S.plan.days.forEach(function(d){ (d.exercises||[]).forEach(function(e){ allExNames.push(e.name); }); });
+  }
+  var sysCtx = 'You are an expert AI fitness coach.'
+    + ' User: ' + S.profile.name + ', goal: ' + S.profile.goal + ', level: ' + S.profile.level + '.'
+    + ' Current workout exercises: ' + JSON.stringify(allExNames) + '.'
+    + ' If asked to update the workout plan, end your response with exactly:'
+    + ' WORKOUT_JSON:{"days":[{"day":"Day 1","focus":"...","exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"3-word query"}]}]}'
+    + ' Keep responses concise and motivating.';
   var full = '';
-  puter.ai.chat(hist, {model:'claude-sonnet-4-5', stream:true}).then(function(stream){
+  try {
     el.textContent = '';
-    var iter = stream[Symbol.asyncIterator]();
-    function next(){
-      iter.next().then(function(r){
-        if (r.done) { finishChat(el, full); return; }
-        if (r.value && r.value.text) {
-          full += r.value.text;
-          var disp = full;
-          var wi   = disp.indexOf('WORKOUT_JSON:');
-          if (wi !== -1) disp = disp.slice(0, wi);
-          el.textContent = disp.trim();
-          document.getElementById('chat-msgs').scrollTop = 99999;
-        }
-        next();
-      }).catch(function(){ finishChat(el, full); });
-    }
-    next();
-  }).catch(function(){
+    await aiStream(S.history, sysCtx, function(chunk){
+      full += chunk;
+      var disp = full;
+      var wi   = disp.indexOf('WORKOUT_JSON:');
+      if (wi !== -1) disp = disp.slice(0, wi);
+      el.textContent = disp.trim();
+      document.getElementById('chat-msgs').scrollTop = 99999;
+    });
+    finishChat(el, full);
+  } catch(e) {
     el.textContent = 'Something went wrong. Please try again.';
-  });
+  }
 }
 
 function finishChat(el, full) {
@@ -879,8 +955,9 @@ function finishChat(el, full) {
       var end = raw.indexOf('\n');
       if (end !== -1) raw = raw.slice(0, end);
       var update = JSON.parse(raw);
-      if (update.exercises) {
-        S.plan.exercises = update.exercises;
+      if (update.days) {
+        S.plan.days = update.days;
+        S.activeDay = 0;
         save();
         renderWorkout();
         el.textContent = full.slice(0, wi).trim() + '\n\nWorkout updated! Check the Workout tab.';
