@@ -699,14 +699,17 @@ function toast(msg, type) {
 
 // AI via Pollinations.AI - 100% free, no API key, no signup, no login required
 // Docs: https://pollinations.ai
-async function aiChat(prompt) {
+async function aiChat(prompt, maxTokens) {
   var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
+  var seed = Math.floor(Math.random() * 99999);
+  var body = {model: 'openai', messages: messages, seed: seed, private: true};
+  if (maxTokens) body.max_tokens = maxTokens;
   var res = await fetch('https://text.pollinations.ai/openai', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({model: 'openai', messages: messages, seed: 42, private: true})
+    body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error('AI request failed (' + res.status + ') - check internet connection');
+  if (!res.ok) throw new Error('AI request failed (' + res.status + ')');
   var data = await res.json();
   return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
 }
@@ -716,7 +719,7 @@ async function aiStream(messages, onChunk) {
     var res = await fetch('https://text.pollinations.ai/openai', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({model: 'openai', messages: messages, stream: true, seed: 42, private: true})
+      body: JSON.stringify({model: 'openai', messages: messages, stream: true, seed: Math.floor(Math.random()*99999), private: true})
     });
     if (!res.ok) throw new Error('Stream failed (' + res.status + ')');
     var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
@@ -802,16 +805,26 @@ async function generateAll() {
 
 async function generatePlan() {
   var p = S.profile, numDays = parseInt(p.days) || 4;
-  var prompt = 'Expert fitness trainer. Return ONLY valid JSON with no markdown, no explanation.\n'
-    + 'Create a '+numDays+'-day/week workout plan for: '+p.name+', age '+p.age+', '+p.gender+', '+p.weight+'kg, '+p.height+'cm. Goal: '+p.goal.replace('_',' ')+'. Level: '+p.level+'.\n'
-    + 'Return exactly: {"planTitle":"...","planDescription":"...","days":[{"day":"Day 1","focus":"Chest & Triceps","exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"3-word giphy query"}]}]}\n'
-    + numDays+' days, 4-6 exercises each, different muscle focus each day.';
-  var text = await aiChat(prompt);
-  var parsed = extractJSON(text);
-  if (!parsed || !parsed.days) throw new Error('Invalid plan JSON');
+  var schema = '{"planTitle":"...","planDescription":"...","days":[{"day":"Day 1","focus":"Chest & Triceps","exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"bench press"}]}]}';
+  var prompt = 'You are a fitness trainer. Return ONLY a valid JSON object, no markdown, no extra text.'
+    + ' Create a ' + numDays + '-day workout plan.'
+    + ' User: ' + p.gender + ', age ' + p.age + ', ' + p.weight + 'kg, goal: ' + p.goal.replace('_', ' ') + ', level: ' + p.level + '.'
+    + ' Use this exact JSON structure: ' + schema
+    + ' Rules: ' + numDays + ' day objects, 4 exercises each, vary muscle groups each day, gifSearch is 2-3 words.';
+  var text = '', parsed = null;
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      text = await aiChat(prompt, 3000);
+      parsed = extractJSON(text);
+      if (parsed && parsed.days && parsed.days.length > 0) break;
+    } catch(e) { if (attempt === 2) throw e; }
+    await new Promise(function(r) { setTimeout(r, 1500); });
+  }
+  if (!parsed || !parsed.days || parsed.days.length === 0) {
+    throw new Error('Could not parse workout plan. Got: ' + text.slice(0, 120));
+  }
   S.plan = parsed; S.activeDay = 0; save();
 }
-
 async function regenWorkout() {
   showLoading('Regenerating workout...');
   try { await generatePlan(); hideLoading(); renderWorkout(); toast('Workout updated!','success'); }
@@ -820,17 +833,46 @@ async function regenWorkout() {
 
 async function generateDiet() {
   var p = S.profile;
-  var dietLabel = p.diet==='vegetarian'?'Indian vegetarian':p.diet==='non_vegetarian'?'Indian non-vegetarian':'vegan Indian';
-  var prompt = 'Indian nutritionist. Return ONLY valid JSON with no markdown, no explanation.\n'
-    + 'Create a 7-day '+dietLabel+' diet plan. Name: '+p.name+', goal: '+p.goal.replace('_',' ')+', calorie target: '+S.goal+' kcal/day, weight: '+p.weight+'kg.\n'
-    + 'Return exactly: {"dietTitle":"...","dietDescription":"...","days":[{"day":"Day 1","totalCal":'+S.goal+',"meals":[{"meal":"Breakfast","items":[{"name":"Poha","qty":"1 bowl (200g)","cal":220,"protein":5,"carbs":40,"fat":4,"notes":"light and easy"}]}]}]}\n'
-    + '7 days. Each day: Breakfast, Mid-Morning Snack, Lunch, Evening Snack, Dinner. Authentic Indian foods. Hit ~'+S.goal+' kcal daily. Include qty and macros per item.';
-  var text = await aiChat(prompt);
-  var parsed = extractJSON(text);
-  if (!parsed || !parsed.days) throw new Error('Invalid diet JSON');
-  S.diet = parsed; S.activeDietDay = 0; save();
-}
+  var dietLabel = p.diet === 'vegetarian' ? 'Indian vegetarian' : p.diet === 'non_vegetarian' ? 'Indian non-vegetarian' : 'vegan Indian';
+  var itemSchema = '{"name":"Poha","qty":"1 bowl 200g","cal":220,"protein":5,"carbs":40,"fat":4,"notes":"light"}';
+  var daySchema = '{"day":"Day 1","totalCal":' + S.goal + ',"meals":[{"meal":"Breakfast","items":[' + itemSchema + ']}]}';
+  var basePrompt = 'You are an Indian nutritionist. Return ONLY a valid JSON object, no markdown, no extra text.'
+    + ' Diet type: ' + dietLabel + '. Calorie target: ' + S.goal + ' kcal/day.'
+    + ' Each day needs 5 meals: Breakfast, Mid-Morning Snack, Lunch, Evening Snack, Dinner.'
+    + ' Each item needs name, qty, cal, protein, carbs, fat as numbers, notes.'
+    + ' Use authentic Indian foods. JSON day structure: ' + daySchema;
 
+  var allDays = [], title = 'Your Indian Diet Plan', desc = '';
+  var batches = [[1,2,3,4],[5,6,7]];
+
+  for (var bi = 0; bi < batches.length; bi++) {
+    var batch = batches[bi];
+    var first = batch[0], last = batch[batch.length - 1];
+    var titleInstr = bi === 0 ? ' Include dietTitle and dietDescription fields in the root object.' : ' Use empty strings for dietTitle and dietDescription.';
+    var prompt = basePrompt
+      + ' Generate exactly days ' + first + ' through ' + last + ' (' + batch.length + ' items in the days array).'
+      + titleInstr
+      + ' Root JSON structure: {"dietTitle":"...","dietDescription":"...","days":[...]}';
+
+    var text = '', parsed = null;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        text = await aiChat(prompt, 3000);
+        parsed = extractJSON(text);
+        if (parsed && parsed.days && parsed.days.length > 0) break;
+      } catch(e2) { if (attempt === 2) throw e2; }
+      await new Promise(function(r) { setTimeout(r, 1500); });
+    }
+    if (!parsed || !parsed.days || parsed.days.length === 0) {
+      throw new Error('Diet generation failed for days ' + first + '-' + last + '. Got: ' + text.slice(0, 120));
+    }
+    if (bi === 0) { title = parsed.dietTitle || title; desc = parsed.dietDescription || ''; }
+    allDays = allDays.concat(parsed.days);
+  }
+
+  S.diet = { dietTitle: title, dietDescription: desc, days: allDays };
+  S.activeDietDay = 0; save();
+}
 async function regenDiet() {
   showLoading('Regenerating diet plan...');
   try { await generateDiet(); hideLoading(); renderDiet(); toast('Diet plan updated!','success'); }
