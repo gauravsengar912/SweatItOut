@@ -7,7 +7,6 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0a">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://js.puter.com/v2/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--surface:#1e1e1e;--border:#2a2a2a;--accent:#ff4500;--accent2:#ff6b35;--green:#00e676;--text:#f0f0f0;--muted:#888;--r:16px}
@@ -231,7 +230,7 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 <div id="onboarding">
   <div class="ob-slide active" id="ob1">
     <div class="ob-logo">SweatItOut &#x1F525;</div>
-    <p class="ob-sub">AI fitness + Indian diet tracker.<br><span style="color:var(--green);font-size:.82rem">&#10003; Powered by Puter.js &mdash; No signup needed</span></p>
+    <p class="ob-sub">AI fitness + Indian diet tracker.<br><span style="color:var(--green);font-size:.82rem">&#10003; Powered by Pollinations.AI &mdash; No signup needed</span></p>
     <button class="btn" onclick="nextOb(2)">Get Started &rarr;</button>
   </div>
   <div class="ob-slide" id="ob2">
@@ -698,55 +697,51 @@ function toast(msg, type) {
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3200);
 }
 
-// AI via Puter.js - free, no API key, works standalone
-// Puter auto-creates a guest session on first use
+// AI via Pollinations.AI - 100% free, no API key, no signup, no login required
+// Docs: https://pollinations.ai
 async function aiChat(prompt) {
   var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
-  try {
-    var resp = await puter.ai.chat(messages, {model: 'claude-sonnet-4-5'});
-    if (typeof resp === 'string') return resp;
-    if (resp && resp.message) {
-      var c = resp.message.content;
-      if (Array.isArray(c)) return c.map(function(b){return b.text||'';}).join('');
-      if (typeof c === 'string') return c;
-    }
-    if (resp && resp.content) {
-      var c2 = resp.content;
-      if (Array.isArray(c2)) return c2.map(function(b){return b.text||'';}).join('');
-    }
-    return String(resp || '');
-  } catch(e) {
-    // If auth needed, show friendly message
-    if (e && (String(e).indexOf('auth') !== -1 || String(e).indexOf('login') !== -1 || String(e).indexOf('sign') !== -1)) {
-      throw new Error('Please sign in to Puter.com (free) to use AI features, then reload this page.');
-    }
-    throw e;
-  }
+  var res = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({model: 'openai-large', messages: messages, seed: 42, private: true})
+  });
+  if (!res.ok) throw new Error('AI request failed (' + res.status + ') - check internet connection');
+  var data = await res.json();
+  return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
 }
 
 async function aiStream(messages, onChunk) {
-  // Puter stream - fall back to non-stream if stream fails
   try {
-    var stream = await puter.ai.chat(messages, {model: 'claude-sonnet-4-5', stream: true});
-    for await (var part of stream) {
-      var t = '';
-      if (typeof part === 'string') t = part;
-      else if (part && part.text) t = part.text;
-      else if (part && part.delta && part.delta.text) t = part.delta.text;
-      else if (part && part.message && part.message.content) {
-        var c = part.message.content;
-        t = Array.isArray(c) ? c.map(function(b){return b.text||'';}).join('') : (c||'');
+    var res = await fetch('https://text.pollinations.ai/openai', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model: 'openai-large', messages: messages, stream: true, seed: 42, private: true})
+    });
+    if (!res.ok) throw new Error('Stream failed (' + res.status + ')');
+    var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
+    while (true) {
+      var tmp = await reader.read(); if (tmp.done) break;
+      buf += decoder.decode(tmp.value, {stream: true});
+      var lines = buf.split('\n'); buf = lines.pop();
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line.startsWith('data:')) continue;
+        var s = line.slice(5).trim(); if (s === '[DONE]') continue;
+        try {
+          var ev = JSON.parse(s);
+          var t = ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content;
+          if (t) onChunk(t);
+        } catch(e2) {}
       }
-      if (t) onChunk(t);
     }
   } catch(streamErr) {
-    // Fallback: non-streaming
+    // Fallback: non-streaming with simulated typewriter
     var text = await aiChat(messages);
-    // Simulate streaming by chunking the response
     var words = text.split(' ');
     for (var i = 0; i < words.length; i++) {
       onChunk((i === 0 ? '' : ' ') + words[i]);
-      await new Promise(function(r){ setTimeout(r, 15); });
+      await new Promise(function(r){ setTimeout(r, 12); });
     }
   }
 }
@@ -1082,7 +1077,7 @@ function aiSend(section, prefill) {
     save();
   }).catch(function(err) {
     var msg = err && err.message ? err.message : 'Something went wrong';
-    el.textContent = 'Error: ' + msg + '\n\nIf this keeps happening, open puter.com in this browser and sign in (free), then reload.';
+    el.textContent = 'Error: ' + msg + '\n\nPollinations.AI is free with no login needed. Check your internet connection and try again.';
   });
 }
 
