@@ -701,10 +701,10 @@ function toast(msg, type) {
 // Docs: https://pollinations.ai
 async function aiChat(prompt) {
   var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
-  var res = await fetch('https://text.pollinations.ai/v1/chat/completions', {
+  var res = await fetch('https://text.pollinations.ai/openai', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({model: 'openai-large', messages: messages, seed: 42, private: true})
+    body: JSON.stringify({model: 'openai', messages: messages, seed: 42, private: true})
   });
   if (!res.ok) throw new Error('AI request failed (' + res.status + ') - check internet connection');
   var data = await res.json();
@@ -713,10 +713,10 @@ async function aiChat(prompt) {
 
 async function aiStream(messages, onChunk) {
   try {
-    var res = await fetch('https://text.pollinations.ai/v1/chat/completions', {
+    var res = await fetch('https://text.pollinations.ai/openai', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({model: 'openai-large', messages: messages, stream: true, seed: 42, private: true})
+      body: JSON.stringify({model: 'openai', messages: messages, stream: true, seed: 42, private: true})
     });
     if (!res.ok) throw new Error('Stream failed (' + res.status + ')');
     var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
