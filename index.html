@@ -7,7 +7,6 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0a">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://js.puter.com/v2/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--surface:#1e1e1e;--border:#2a2a2a;--accent:#ff4500;--accent2:#ff6b35;--green:#00e676;--text:#f0f0f0;--muted:#888;--r:16px}
@@ -169,16 +168,36 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 .ai-input-row input:focus{border-color:var(--accent)}
 .send-btn{background:var(--accent);border:none;color:#fff;width:40px;height:40px;border-radius:11px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 /* Loading overlay */
-.gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:150;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px}
+.gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,.97);z-index:150;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px}
 .gen-title{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--accent);text-align:center}
 #gen-status{color:var(--muted);font-size:.85rem;text-align:center;max-width:280px;line-height:1.5}
 .gen-dots{display:flex;gap:8px}
 .gdot{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:gdp 1.2s ease infinite}
-.gdot:nth-child(2){animation-delay:.2s;background:var(--green)}
-.gdot:nth-child(3){animation-delay:.4s;background:#64b5f6}
+.gdot:nth-child(2){animation-delay:.2s;background:var(--green)}.gdot:nth-child(3){animation-delay:.4s;background:#64b5f6}
 @keyframes gdp{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1.2);opacity:1}}
-.gen-gif-box{width:220px;height:165px;border-radius:20px;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;border:2px solid var(--accent)}
-.gen-gif-box img{width:100%;height:100%;object-fit:cover;display:block}
+/* CSS Hakari dancer */
+.dancer{width:90px;height:130px;position:relative;animation:dancer-bounce .5s ease-in-out infinite alternate}
+@keyframes dancer-bounce{0%{transform:translateY(0) rotate(-3deg)}100%{transform:translateY(-12px) rotate(3deg)}}
+.dancer-head{width:38px;height:38px;background:radial-gradient(circle at 40% 35%,#ffcc80,#ff8c00);border-radius:50%;position:absolute;left:50%;transform:translateX(-50%);top:0;box-shadow:0 0 18px rgba(255,140,0,.7)}
+.dancer-face{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:28px;text-align:center;font-size:13px;line-height:1}
+.dancer-body{width:32px;height:40px;background:linear-gradient(180deg,#ff4500,#c62800);border-radius:8px 8px 4px 4px;position:absolute;top:42px;left:50%;transform:translateX(-50%)}
+.dancer-arm{width:10px;height:32px;background:#ff6b35;border-radius:5px;position:absolute;top:44px}
+.dancer-arm-l{left:14px;transform-origin:top center;animation:arm-l .5s ease-in-out infinite alternate}
+.dancer-arm-r{right:14px;transform-origin:top center;animation:arm-r .5s ease-in-out infinite alternate}
+@keyframes arm-l{0%{transform:rotate(-110deg)}100%{transform:rotate(30deg)}}
+@keyframes arm-r{0%{transform:rotate(110deg)}100%{transform:rotate(-30deg)}}
+.dancer-leg{width:12px;height:36px;background:#c62800;border-radius:5px;position:absolute;top:80px}
+.dancer-leg-l{left:22px;transform-origin:top center;animation:leg-l .5s ease-in-out infinite alternate}
+.dancer-leg-r{right:22px;transform-origin:top center;animation:leg-r .5s ease-in-out infinite alternate}
+@keyframes leg-l{0%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}
+@keyframes leg-r{0%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}
+.dancer-glow{position:absolute;inset:-10px;border-radius:50%;background:radial-gradient(circle,rgba(255,69,0,.15) 0%,transparent 70%);animation:glow-pulse .5s ease-in-out infinite alternate}
+@keyframes glow-pulse{0%{opacity:.4;transform:scale(.9)}100%{opacity:1;transform:scale(1.1)}}
+.dancer-notes{position:absolute;font-size:18px;animation:float-note 1s ease-in-out infinite}
+.dancer-notes:nth-child(1){top:-10px;left:-20px;animation-delay:0s}
+.dancer-notes:nth-child(2){top:-5px;right:-18px;animation-delay:.33s}
+.dancer-notes:nth-child(3){top:20px;left:-28px;animation-delay:.66s}
+@keyframes float-note{0%{transform:translateY(0) rotate(-10deg);opacity:1}100%{transform:translateY(-20px) rotate(10deg);opacity:0}}
 /* Modal */
 .moverlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .msheet{background:var(--bg2);border-radius:22px 22px 0 0;padding:22px;width:100%;max-width:600px;animation:slideUp .3s ease}
@@ -265,18 +284,24 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 
 <!-- LOADING OVERLAY -->
 <div id="gen-overlay" class="gen-overlay" style="display:none">
-  <div class="gen-gif-box">
-    <img src="https://media.tenor.com/GDe7DIDTkB4AAAAM/hakari-dance-hakari-kinji.gif" alt="Hakari dancing" crossorigin="anonymous">
+  <div style="position:relative">
+    <div class="dancer-glow"></div>
+    <div class="dancer">
+      <span class="dancer-notes">&#x1F3B5;</span>
+      <span class="dancer-notes">&#x1F3B6;</span>
+      <span class="dancer-notes">&#x2669;</span>
+      <div class="dancer-head"><div class="dancer-face">&#x1F60E;</div></div>
+      <div class="dancer-body"></div>
+      <div class="dancer-arm dancer-arm-l"></div>
+      <div class="dancer-arm dancer-arm-r"></div>
+      <div class="dancer-leg dancer-leg-l"></div>
+      <div class="dancer-leg dancer-leg-r"></div>
+    </div>
   </div>
-  <div class="gen-title">Building Your Plan 🔥</div>
+  <div class="gen-title">Building Your Plan &#x1F525;</div>
   <div id="gen-status">Crafting your personalized plan...</div>
   <div class="gen-dots"><div class="gdot"></div><div class="gdot"></div><div class="gdot"></div></div>
 </div>
-
-<!-- AUDIO for loading (Voicemod) -->
-<audio id="load-audio" loop preload="none">
-  <source src="https://tuna.voicemod.net/sound/fbea8889-eb8f-4554-8b03-36344df02458" type="audio/mpeg">
-</audio>
 
 <!-- APP -->
 <div id="app">
@@ -573,17 +598,43 @@ function installApp() {
 
 function save() { localStorage.setItem('sweatitout', JSON.stringify(S)); }
 
-// Loading overlay
+// Web Audio dance music for loading screen
+var _musicCtx = null, _musicTimer = null;
+function startMusic() {
+  try {
+    if (!_musicCtx) _musicCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var ctx = _musicCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    var melody = [330,392,440,392,330,294,330,392];
+    var step = 0;
+    function playStep() {
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator(); var g = ctx.createGain();
+      osc.type = 'triangle'; osc.frequency.value = melody[step % melody.length];
+      g.gain.setValueAtTime(0.15, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(g); g.connect(ctx.destination); osc.start(now); osc.stop(now + 0.2);
+      var osc2 = ctx.createOscillator(); var g2 = ctx.createGain();
+      osc2.type = 'sine'; osc2.frequency.setValueAtTime(120, now);
+      osc2.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+      g2.gain.setValueAtTime(0.25, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc2.connect(g2); g2.connect(ctx.destination); osc2.start(now); osc2.stop(now + 0.18);
+      step++; _musicTimer = setTimeout(playStep, 220);
+    }
+    playStep();
+  } catch(e) {}
+}
+function stopMusic() {
+  if (_musicTimer) { clearTimeout(_musicTimer); _musicTimer = null; }
+  try { if (_musicCtx) _musicCtx.suspend(); } catch(e) {}
+}
 function showLoading(msg) {
   document.getElementById('gen-status').textContent = msg || 'Loading...';
   document.getElementById('gen-overlay').style.display = 'flex';
-  var audio = document.getElementById('load-audio');
-  if (audio) { audio.volume = 0.35; audio.play().catch(function(){}); }
+  startMusic();
 }
 function hideLoading() {
   document.getElementById('gen-overlay').style.display = 'none';
-  var audio = document.getElementById('load-audio');
-  if (audio) { audio.pause(); audio.currentTime = 0; }
+  stopMusic();
 }
 
 // HELPERS
@@ -646,29 +697,45 @@ function toast(msg, type) {
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3200);
 }
 
-// AI via Puter (no login required when used inside claude.ai / puter context)
-function puterText(raw) {
-  if (typeof raw === 'string') return raw;
-  if (raw && raw.message && raw.message.content && raw.message.content[0]) return raw.message.content[0].text || '';
-  if (raw && raw.content && raw.content[0]) return raw.content[0].text || '';
-  if (raw && raw.text) return raw.text;
-  return String(raw || '');
-}
-
+// AI via Anthropic API - works in claude.ai context (no API key needed here)
 async function aiChat(prompt) {
   var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
-  var raw = await puter.ai.chat(messages, {model:'claude-haiku-4-5'});
-  return puterText(raw);
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({model:'claude-haiku-4-5-20251001', max_tokens:4096, messages:messages})
+  });
+  if (!res.ok) { var e = await res.json().catch(function(){return {};}); throw new Error(e.error&&e.error.message||'AI request failed ('+res.status+')'); }
+  var data = await res.json();
+  return (data.content && data.content[0] && data.content[0].text) || '';
 }
 
 async function aiStream(messages, onChunk) {
-  var stream = await puter.ai.chat(messages, {model:'claude-haiku-4-5', stream: true});
-  for await (var part of stream) {
-    var t = '';
-    if (typeof part === 'string') t = part;
-    else if (part && part.text) t = part.text;
-    else if (part && part.delta && part.delta.text) t = part.delta.text;
-    if (t) onChunk(t);
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({model:'claude-haiku-4-5-20251001', max_tokens:2048, stream:true, messages:messages})
+  });
+  if (!res.ok) { var e = await res.json().catch(function(){return {};}); throw new Error(e.error&&e.error.message||'AI stream failed ('+res.status+')'); }
+  var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
+  while (true) {
+    var tmp = await reader.read(); if (tmp.done) break;
+    buf += decoder.decode(tmp.value, {stream:true});
+    var lines = buf.split('\n'); buf = lines.pop();
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line.startsWith('data:')) continue;
+      var s = line.slice(5).trim(); if (s === '[DONE]') continue;
+      try { var ev = JSON.parse(s); if (ev.delta && ev.delta.text) onChunk(ev.delta.text); } catch(e) {}
+    }
   }
 }
 
