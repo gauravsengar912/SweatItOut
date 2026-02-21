@@ -230,9 +230,23 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 <div id="onboarding">
   <div class="ob-slide active" id="ob1">
     <div class="ob-logo">SweatItOut &#x1F525;</div>
-    <p class="ob-sub">AI fitness + Indian diet tracker.<br><span style="color:var(--green);font-size:.82rem">&#10003; Powered by Pollinations.AI &mdash; No signup needed</span></p>
-    <button class="btn" onclick="nextOb(2)">Get Started &rarr;</button>
+    <p class="ob-sub">AI fitness + Indian diet tracker.<br><span style="color:var(--green);font-size:.82rem">&#10003; Powered by Gemini AI &mdash; Free API</span></p>
+    <button class="btn" onclick="nextOb('1b')">Get Started &rarr;</button>
   </div>
+  <div class="ob-slide" id="ob1b">
+    <div class="ob-step">Step 0 &mdash; AI Setup</div>
+    <h2>Enter your Gemini API Key</h2>
+    <p class="ob-sub" style="text-align:left;margin-bottom:4px">Get a <strong>free</strong> key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a><br>
+    <span style="font-size:.78rem;color:var(--muted)">1500 free requests/day &bull; No credit card needed</span></p>
+    <div class="ig">
+      <label>Gemini API Key</label>
+      <input id="ob-apikey" type="password" placeholder="AIza..." autocomplete="off" style="font-family:monospace;letter-spacing:1px">
+    </div>
+    <div id="key-status" style="font-size:.78rem;min-height:18px;margin-top:-8px"></div>
+    <button class="btn" onclick="validateAndSaveKey()">Verify &amp; Continue &rarr;</button>
+    <button class="btn btn-outline btn-sm" style="margin-top:-6px" onclick="nextOb(2)" id="skip-key-btn" style="display:none">Skip (add key later)</button>
+  </div>
+
   <div class="ob-slide" id="ob2">
     <div class="ob-step">Step 1 of 2 &mdash; About You</div>
     <h2>Tell us about yourself</h2>
@@ -309,6 +323,7 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
     <span class="topbar-title">SweatItOut &#x1F525;</span>
     <div class="topbar-actions">
       <button class="topbar-btn" id="install-btn" title="Install App" onclick="installApp()">&#x1F4F2;</button>
+      <button class="topbar-btn" title="Change API Key" onclick="changeKey()">&#x1F511;</button>
       <button class="topbar-btn" title="Reset" onclick="resetApp()">&#x2699;&#xFE0F;</button>
     </div>
   </div>
@@ -558,7 +573,7 @@ var S = {
   goal: 2000, activeDay: 0, activeDietDay: 0,
   log: { breakfast:[], lunch:[], snacks:[], dinner:[] },
   aiHistory: { workout:[], diet:[], food:[] },
-  meal: 'breakfast', food: null
+  meal: 'breakfast', food: null, geminiKey: ''
 };
 
 // PWA Install
@@ -583,6 +598,42 @@ function installApp() {
   }
 }
 
+// Gemini key management
+function validateAndSaveKey() {
+  var key = document.getElementById('ob-apikey').value.trim();
+  var status = document.getElementById('key-status');
+  if (!key) { status.style.color = 'var(--accent)'; status.textContent = 'Please paste your API key.'; return; }
+  if (!key.startsWith('AIza')) { status.style.color = 'var(--accent)'; status.textContent = 'Key should start with AIza...'; return; }
+  status.style.color = 'var(--muted)'; status.textContent = 'Verifying...';
+  // Quick test call
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + key, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({contents:[{role:'user',parts:[{text:'Hi'}]}]})
+  }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+  .then(function(r) {
+    if (r.ok) {
+      S.geminiKey = key;
+      localStorage.setItem('sweatitout_key', key);
+      status.style.color = 'var(--green)'; status.textContent = 'Key verified!';
+      setTimeout(function(){ nextOb(2); }, 700);
+    } else {
+      var msg = (r.data.error && r.data.error.message) || 'Invalid key';
+      status.style.color = 'var(--accent)'; status.textContent = 'Error: ' + msg;
+    }
+  }).catch(function() {
+    status.style.color = 'var(--accent)'; status.textContent = 'Network error. Check connection.';
+  });
+}
+
+function changeKey() {
+  var key = prompt('Enter new Gemini API key (get free at aistudio.google.com/apikey):');
+  if (!key) return;
+  key = key.trim();
+  if (!key.startsWith('AIza')) { toast('Invalid key format', 'error'); return; }
+  S.geminiKey = key; localStorage.setItem('sweatitout_key', key); save();
+  toast('API key updated!', 'success');
+}
+
 // Boot
 (function() {
   var raw = localStorage.getItem('sweatitout');
@@ -591,6 +642,7 @@ function installApp() {
     var loaded = JSON.parse(raw);
     S = Object.assign(S, loaded);
     if (!S.aiHistory) S.aiHistory = { workout:[], diet:[], food:[] };
+    if (!S.geminiKey) S.geminiKey = localStorage.getItem('sweatitout_key') || '';
     document.getElementById('onboarding').style.display = 'none';
     initApp();
   } catch(e) { localStorage.removeItem('sweatitout'); }
@@ -652,6 +704,18 @@ function showFieldError(id, msg) {
 }
 
 function nextOb(n) {
+  if (n === '1b') {
+    document.querySelectorAll('.ob-slide').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById('ob1b').classList.add('active');
+    // Pre-fill if key already saved
+    var existing = localStorage.getItem('sweatitout_key');
+    if (existing) {
+      document.getElementById('ob-apikey').value = existing;
+      document.getElementById('key-status').style.color = 'var(--green)';
+      document.getElementById('key-status').textContent = 'Key already saved.';
+    }
+    return;
+  }
   if (n === 3) {
     // Validate step 1
     var name = document.getElementById('ob-name').value.trim();
@@ -697,31 +761,48 @@ function toast(msg, type) {
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3200);
 }
 
-// AI via Pollinations.AI - 100% free, no API key, no signup, no login required
-// Docs: https://pollinations.ai
+// AI via Gemini - free tier (1500 req/day), key stored in localStorage
+function getApiKey() {
+  return S.geminiKey || localStorage.getItem('sweatitout_key') || '';
+}
+
 async function aiChat(prompt, maxTokens) {
-  var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
-  var seed = Math.floor(Math.random() * 99999);
-  var body = {model: 'openai', messages: messages, seed: seed, private: true};
-  if (maxTokens) body.max_tokens = maxTokens;
-  var res = await fetch('https://text.pollinations.ai/openai', {
+  var key = getApiKey();
+  if (!key) throw new Error('No Gemini API key set. Tap the key icon to add one.');
+  var messages = typeof prompt === 'string' ? [{role:'user', parts:[{text: prompt}]}] : prompt.map(function(m) {
+    return {role: m.role === 'assistant' ? 'model' : 'user', parts:[{text: m.content}]};
+  });
+  var body = {contents: messages};
+  if (maxTokens) body.generationConfig = {maxOutputTokens: maxTokens};
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + key;
+  var res = await fetch(url, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error('AI request failed (' + res.status + ')');
+  if (!res.ok) {
+    var err = await res.json().catch(function(){return {};});
+    var msg = (err.error && err.error.message) || ('Request failed ' + res.status);
+    throw new Error(msg);
+  }
   var data = await res.json();
-  return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  return (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
 }
 
 async function aiStream(messages, onChunk) {
+  var key = getApiKey();
+  if (!key) throw new Error('No Gemini API key set. Tap the key icon to add one.');
+  var gemMsgs = messages.map(function(m) {
+    return {role: m.role === 'assistant' ? 'model' : 'user', parts:[{text: m.content}]};
+  });
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=' + key;
   try {
-    var res = await fetch('https://text.pollinations.ai/openai', {
+    var res = await fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({model: 'openai', messages: messages, stream: true, seed: Math.floor(Math.random()*99999), private: true})
+      body: JSON.stringify({contents: gemMsgs})
     });
-    if (!res.ok) throw new Error('Stream failed (' + res.status + ')');
+    if (!res.ok) throw new Error('Stream failed ' + res.status);
     var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
     while (true) {
       var tmp = await reader.read(); if (tmp.done) break;
@@ -730,25 +811,23 @@ async function aiStream(messages, onChunk) {
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
         if (!line.startsWith('data:')) continue;
-        var s = line.slice(5).trim(); if (s === '[DONE]') continue;
+        var s = line.slice(5).trim(); if (!s || s === '[DONE]') continue;
         try {
           var ev = JSON.parse(s);
-          var t = ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content;
+          var t = ev.candidates && ev.candidates[0] && ev.candidates[0].content && ev.candidates[0].content.parts && ev.candidates[0].content.parts[0] && ev.candidates[0].content.parts[0].text;
           if (t) onChunk(t);
         } catch(e2) {}
       }
     }
   } catch(streamErr) {
-    // Fallback: non-streaming with simulated typewriter
     var text = await aiChat(messages);
     var words = text.split(' ');
-    for (var i = 0; i < words.length; i++) {
-      onChunk((i === 0 ? '' : ' ') + words[i]);
-      await new Promise(function(r){ setTimeout(r, 12); });
+    for (var wi = 0; wi < words.length; wi++) {
+      onChunk((wi === 0 ? '' : ' ') + words[wi]);
+      await new Promise(function(r){ setTimeout(r, 10); });
     }
   }
 }
-
 // ONBOARDING
 function finishOnboarding() {
   var name   = document.getElementById('ob-name').value.trim();
@@ -799,7 +878,7 @@ async function generateAll() {
       errDiv.style.cssText = 'background:rgba(255,69,0,.12);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;font-size:.82rem;color:var(--accent);line-height:1.5;margin-top:-8px';
       document.getElementById('ob3').insertBefore(errDiv, document.getElementById('ob3').firstChild);
     }
-    errDiv.innerHTML = '<strong>AI Error:</strong> ' + msg + '<br><span style="color:var(--muted)">Check your internet connection and try again. AI is powered by Pollinations.AI (free, no login needed).</span>';
+    errDiv.innerHTML = '<strong>AI Error:</strong> ' + msg + '<br><span style="color:var(--muted)">Tap the &#x1F511; key icon in the top bar to update your Gemini API key, or check your internet connection.</span>';
   }
 }
 
