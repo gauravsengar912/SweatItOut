@@ -236,8 +236,14 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
   <div class="ob-slide" id="ob1b">
     <div class="ob-step">Step 0 &mdash; AI Setup</div>
     <h2>Enter your Gemini API Key</h2>
-    <p class="ob-sub" style="text-align:left;margin-bottom:4px">Get a <strong>free</strong> key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a><br>
-    <span style="font-size:.78rem;color:var(--muted)">1500 free requests/day &bull; No credit card needed</span></p>
+    <p class="ob-sub" style="text-align:left;margin-bottom:4px">
+      <strong>How to get your free key:</strong><br>
+      1. Go to <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a><br>
+      2. Sign in with Google &rarr; click <strong>"Create API key"</strong><br>
+      3. Copy the key &mdash; it starts with <code style="color:var(--green)">AIzaSy...</code><br>
+      <span style="font-size:.75rem;color:var(--accent)">&#9888; Keys starting with <code>gen-lang-client-</code> are restricted and won't work.</span><br>
+      <span style="font-size:.75rem;color:var(--muted)">Free tier: 1500 req/day &bull; No credit card needed</span>
+    </p>
     <div class="ig">
       <label>Gemini API Key</label>
       <input id="ob-apikey" type="password" placeholder="AIza..." autocomplete="off" style="font-family:monospace;letter-spacing:1px">
@@ -603,10 +609,11 @@ function validateAndSaveKey() {
   var key = document.getElementById('ob-apikey').value.trim();
   var status = document.getElementById('key-status');
   if (!key) { status.style.color = 'var(--accent)'; status.textContent = 'Please paste your API key.'; return; }
-  if (!key.startsWith('AIza')) { status.style.color = 'var(--accent)'; status.textContent = 'Key should start with AIza...'; return; }
+  if (key.startsWith('gen-lang-client')) { status.style.color = 'var(--accent)'; status.textContent = 'This is a restricted client key. You need a personal API key starting with AIzaSy...'; return; }
+  if (!key.startsWith('AIza')) { status.style.color = 'var(--accent)'; status.textContent = 'Key should start with AIzaSy... — get one at aistudio.google.com/apikey'; return; }
   status.style.color = 'var(--muted)'; status.textContent = 'Verifying...';
   // Quick test call
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + key, {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({contents:[{role:'user',parts:[{text:'Hi'}]}]})
   }).then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
@@ -626,10 +633,11 @@ function validateAndSaveKey() {
 }
 
 function changeKey() {
-  var key = prompt('Enter new Gemini API key (get free at aistudio.google.com/apikey):');
+  var key = prompt('Enter Gemini API key (must start with AIzaSy...)\nGet one free at: aistudio.google.com/apikey\nClick "Create API key" after signing in.');
   if (!key) return;
   key = key.trim();
-  if (!key.startsWith('AIza')) { toast('Invalid key format', 'error'); return; }
+  if (key.startsWith('gen-lang-client')) { toast('Restricted key — need a personal AIzaSy... key from aistudio.google.com/apikey', 'error'); return; }
+  if (!key.startsWith('AIza')) { toast('Key should start with AIzaSy...', 'error'); return; }
   S.geminiKey = key; localStorage.setItem('sweatitout_key', key); save();
   toast('API key updated!', 'success');
 }
@@ -774,7 +782,7 @@ async function aiChat(prompt, maxTokens) {
   });
   var body = {contents: messages};
   if (maxTokens) body.generationConfig = {maxOutputTokens: maxTokens};
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + key;
   var res = await fetch(url, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -795,7 +803,7 @@ async function aiStream(messages, onChunk) {
   var gemMsgs = messages.map(function(m) {
     return {role: m.role === 'assistant' ? 'model' : 'user', parts:[{text: m.content}]};
   });
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=' + key;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:streamGenerateContent?alt=sse&key=' + key;
   try {
     var res = await fetch(url, {
       method: 'POST',
