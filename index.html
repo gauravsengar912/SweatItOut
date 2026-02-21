@@ -701,7 +701,7 @@ function toast(msg, type) {
 // Docs: https://pollinations.ai
 async function aiChat(prompt) {
   var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
-  var res = await fetch('https://text.pollinations.ai/openai', {
+  var res = await fetch('https://text.pollinations.ai/v1/chat/completions', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({model: 'openai-large', messages: messages, seed: 42, private: true})
@@ -713,7 +713,7 @@ async function aiChat(prompt) {
 
 async function aiStream(messages, onChunk) {
   try {
-    var res = await fetch('https://text.pollinations.ai/openai', {
+    var res = await fetch('https://text.pollinations.ai/v1/chat/completions', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({model: 'openai-large', messages: messages, stream: true, seed: 42, private: true})
@@ -796,7 +796,7 @@ async function generateAll() {
       errDiv.style.cssText = 'background:rgba(255,69,0,.12);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;font-size:.82rem;color:var(--accent);line-height:1.5;margin-top:-8px';
       document.getElementById('ob3').insertBefore(errDiv, document.getElementById('ob3').firstChild);
     }
-    errDiv.innerHTML = '<strong>AI Error:</strong> ' + msg + '<br><span style="color:var(--muted)">Make sure you\'re signed into <a href="https://puter.com" target="_blank" style="color:#64b5f6">puter.com</a> in this browser, then try again.</span>';
+    errDiv.innerHTML = '<strong>AI Error:</strong> ' + msg + '<br><span style="color:var(--muted)">Check your internet connection and try again. AI is powered by Pollinations.AI (free, no login needed).</span>';
   }
 }
 
