@@ -18,6 +18,7 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 .ob-slide{display:none;width:100%;max-width:440px;animation:fadeUp .4s ease}
 .ob-slide.active{display:flex;flex-direction:column;gap:18px}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 .ob-logo{font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:800;color:var(--accent);letter-spacing:-1px;text-align:center}
 .ob-sub{color:var(--muted);font-size:.9rem;text-align:center;line-height:1.6}
 .ob-step{font-size:.75rem;color:var(--muted);text-align:center;letter-spacing:2px;text-transform:uppercase}
@@ -82,9 +83,9 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 .ex-chevron{color:var(--muted);font-size:.8rem;transition:transform .2s}
 .ex-body{display:none;padding:0 14px 14px}
 .ex-body.open{display:block}
-.ex-gif{width:100%;border-radius:10px;background:var(--bg3);min-height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:10px}
-.ex-gif img{width:100%;border-radius:10px}
-.ex-hint{color:var(--muted);font-size:.82rem}
+.ex-vid{width:100%;border-radius:10px;background:var(--bg3);min-height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:10px;position:relative}
+.ex-vid iframe{width:100%;height:200px;border:none;border-radius:10px}
+.ex-hint{color:var(--muted);font-size:.82rem;text-align:center;padding:20px}
 .ex-tips{font-size:.82rem;color:var(--muted);line-height:1.6}
 /* Diet */
 .diet-banner{background:linear-gradient(135deg,#001a0a,#002d12);border:1px solid #004d20;border-radius:var(--r);padding:18px;margin-bottom:16px}
@@ -168,10 +169,16 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 .ai-input-row input:focus{border-color:var(--accent)}
 .send-btn{background:var(--accent);border:none;color:#fff;width:40px;height:40px;border-radius:11px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 /* Loading overlay */
-.gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:150;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.gen-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:150;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px}
 .gen-title{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--accent);text-align:center}
-.gen-gif{width:200px;height:200px;border-radius:16px;object-fit:cover;display:none}
-#gen-status{color:var(--muted);font-size:.85rem;text-align:center;max-width:280px}
+#gen-status{color:var(--muted);font-size:.85rem;text-align:center;max-width:280px;line-height:1.5}
+.gen-dots{display:flex;gap:8px}
+.gdot{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:gdp 1.2s ease infinite}
+.gdot:nth-child(2){animation-delay:.2s;background:var(--green)}
+.gdot:nth-child(3){animation-delay:.4s;background:#64b5f6}
+@keyframes gdp{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1.2);opacity:1}}
+.gen-gif-box{width:220px;height:165px;border-radius:20px;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;border:2px solid var(--accent)}
+.gen-gif-box img{width:100%;height:100%;object-fit:cover;display:block}
 /* Modal */
 .moverlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
 .msheet{background:var(--bg2);border-radius:22px 22px 0 0;padding:22px;width:100%;max-width:600px;animation:slideUp .3s ease}
@@ -258,10 +265,18 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 
 <!-- LOADING OVERLAY -->
 <div id="gen-overlay" class="gen-overlay" style="display:none">
-  <img id="gen-gif" class="gen-gif" src="https://media.tenor.com/GDe7DIDTkB4AAAAM/hakari-dance-hakari-kinji.gif" alt="Loading..." onload="this.style.display='block'">
-  <div class="gen-title">Building Your Plan &#x1F525;</div>
+  <div class="gen-gif-box">
+    <img src="https://media.tenor.com/GDe7DIDTkB4AAAAM/hakari-dance-hakari-kinji.gif" alt="Hakari dancing" crossorigin="anonymous">
+  </div>
+  <div class="gen-title">Building Your Plan 🔥</div>
   <div id="gen-status">Crafting your personalized plan...</div>
+  <div class="gen-dots"><div class="gdot"></div><div class="gdot"></div><div class="gdot"></div></div>
 </div>
+
+<!-- AUDIO for loading (Voicemod) -->
+<audio id="load-audio" loop preload="none">
+  <source src="https://tuna.voicemod.net/sound/fbea8889-eb8f-4554-8b03-36344df02458" type="audio/mpeg">
+</audio>
 
 <!-- APP -->
 <div id="app">
@@ -511,10 +526,6 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
   </div>
 </div>
 
-<audio id="hakari-audio" preload="auto">
-  <source src="https://tuna.voicemod.net/sound/fbea8889-eb8f-4554-8b03-36344df02458" type="audio/mpeg">
-</audio>
-
 <script>
 // STATE
 var S = {
@@ -562,23 +573,45 @@ function installApp() {
 
 function save() { localStorage.setItem('sweatitout', JSON.stringify(S)); }
 
-// Loading overlay with Hakari
+// Loading overlay
 function showLoading(msg) {
   document.getElementById('gen-status').textContent = msg || 'Loading...';
   document.getElementById('gen-overlay').style.display = 'flex';
-  var audio = document.getElementById('hakari-audio');
-  audio.currentTime = 0;
-  audio.volume = 0.4;
-  audio.play().catch(function(){});
+  var audio = document.getElementById('load-audio');
+  if (audio) { audio.volume = 0.35; audio.play().catch(function(){}); }
 }
 function hideLoading() {
   document.getElementById('gen-overlay').style.display = 'none';
-  var audio = document.getElementById('hakari-audio');
-  audio.pause(); audio.currentTime = 0;
+  var audio = document.getElementById('load-audio');
+  if (audio) { audio.pause(); audio.currentTime = 0; }
 }
 
 // HELPERS
+function showFieldError(id, msg) {
+  var el = document.getElementById(id);
+  el.style.borderColor = 'var(--accent)';
+  el.style.animation = 'shake .35s ease';
+  el.focus();
+  setTimeout(function(){ el.style.animation = ''; }, 400);
+  // Clear error on next input
+  el.addEventListener('input', function clearErr() {
+    el.style.borderColor = ''; el.removeEventListener('input', clearErr);
+  }, {once: true});
+  toast(msg, 'error');
+}
+
 function nextOb(n) {
+  if (n === 3) {
+    // Validate step 1
+    var name = document.getElementById('ob-name').value.trim();
+    var age  = parseFloat(document.getElementById('ob-age').value);
+    var w    = parseFloat(document.getElementById('ob-weight').value);
+    var h    = parseFloat(document.getElementById('ob-height').value);
+    if (!name) { showFieldError('ob-name', 'Please enter your name'); return; }
+    if (!age || age < 10 || age > 100) { showFieldError('ob-age', 'Please enter a valid age (10-100)'); return; }
+    if (!w || w < 20 || w > 300) { showFieldError('ob-weight', 'Please enter a valid weight (20-300 kg)'); return; }
+    if (!h || h < 100 || h > 250) { showFieldError('ob-height', 'Please enter a valid height (100-250 cm)'); return; }
+  }
   document.querySelectorAll('.ob-slide').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('ob'+n).classList.add('active');
 }
@@ -613,32 +646,41 @@ function toast(msg, type) {
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3200);
 }
 
+// AI via Puter (no login required when used inside claude.ai / puter context)
 function puterText(raw) {
   if (typeof raw === 'string') return raw;
   if (raw && raw.message && raw.message.content && raw.message.content[0]) return raw.message.content[0].text || '';
+  if (raw && raw.content && raw.content[0]) return raw.content[0].text || '';
   if (raw && raw.text) return raw.text;
-  return '';
+  return String(raw || '');
 }
 
 async function aiChat(prompt) {
-  var raw = await puter.ai.chat(prompt, { model: 'claude-sonnet-4-5' });
+  var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
+  var raw = await puter.ai.chat(messages, {model:'claude-haiku-4-5'});
   return puterText(raw);
 }
 
 async function aiStream(messages, onChunk) {
-  var stream = await puter.ai.chat(messages, { model: 'claude-sonnet-4-5', stream: true });
+  var stream = await puter.ai.chat(messages, {model:'claude-haiku-4-5', stream: true});
   for await (var part of stream) {
-    if (part && part.text) onChunk(part.text);
+    var t = '';
+    if (typeof part === 'string') t = part;
+    else if (part && part.text) t = part.text;
+    else if (part && part.delta && part.delta.text) t = part.delta.text;
+    if (t) onChunk(t);
   }
 }
 
 // ONBOARDING
 function finishOnboarding() {
-  var name   = document.getElementById('ob-name').value.trim() || 'Champ';
-  var age    = parseFloat(document.getElementById('ob-age').value) || 25;
+  var name   = document.getElementById('ob-name').value.trim();
+  var age    = parseFloat(document.getElementById('ob-age').value);
   var gender = document.getElementById('ob-gender').value;
-  var weight = parseFloat(document.getElementById('ob-weight').value) || 70;
-  var height = parseFloat(document.getElementById('ob-height').value) || 175;
+  var weight = parseFloat(document.getElementById('ob-weight').value);
+  var height = parseFloat(document.getElementById('ob-height').value);
+  // Final check (step 2 has only dropdowns which always have a value)
+  if (!name || !age || !weight || !height) { toast('Please fill all fields on step 1', 'error'); nextOb(2); return; }
   var diet   = document.getElementById('ob-diet').value;
   var goal   = document.getElementById('ob-goal').value;
   var level  = document.getElementById('ob-level').value;
@@ -793,7 +835,7 @@ function renderWorkout() {
       + '<span class="ex-chevron" id="exc-'+key+'">&#x25BC;</span>';
     c.appendChild(head);
     var body = document.createElement('div'); body.className = 'ex-body'; body.id = 'exb-'+key;
-    body.innerHTML = '<div class="ex-gif" id="exg-'+key+'"><span class="ex-hint">&#x25B2; Open to load GIF</span></div>'
+    body.innerHTML = '<div class="ex-vid" id="exg-'+key+'"><div class="ex-hint">&#x25B6; Tap to load video</div></div>'
       + '<div class="ex-tips">'+(ex.tips||'')+'</div>';
     c.appendChild(body); list.appendChild(c);
   });
@@ -810,36 +852,42 @@ function toggleEx(key) {
       gbox.dataset.loaded='1';
       var pts=key.replace('d','').split('e'), di=parseInt(pts[0]), ei=parseInt(pts[1]);
       var ex=S.plan.days[di].exercises[ei];
-      loadGif(gbox, ex.name, ex.gifSearch);
+      loadYouTube(gbox, ex.name, ex.gifSearch);
     }
   }
 }
 
-function loadGif(box, name, gifSearch) {
-  box.innerHTML = '<span class="ex-hint"><span class="spinner"></span> Loading...</span>';
-  var q=encodeURIComponent((gifSearch||name+' exercise').trim());
-  fetch('https://api.giphy.com/v1/gifs/search?api_key=GlVGYHkr3WSBnllca54iNt0yFbjz7L65&q='+q+'&limit=8&rating=g')
-    .then(function(r){return r.json();})
-    .then(function(data){
-      if(!data.data||!data.data.length){gifFallback(box,name);return;}
-      var kws=['exercise','workout','fitness','gym','training'];
-      var best=data.data[0];
-      for(var i=0;i<data.data.length;i++){
-        var slug=(data.data[i].slug+' '+(data.data[i].title||'')).toLowerCase();
-        for(var k=0;k<kws.length;k++){if(slug.indexOf(kws[k])!==-1){best=data.data[i];break;}}
-        if(best!==data.data[0])break;
-      }
-      box.innerHTML='<img src="'+best.images.fixed_height.url+'" alt="'+name+'" style="width:100%;border-radius:10px">'
-        +'<div style="font-size:.62rem;color:var(--muted);text-align:right;margin-top:2px">via Giphy</div>';
-    })
-    .catch(function(){gifFallback(box,name);});
-}
+function loadYouTube(box, name, searchTerm) {
+  var q = encodeURIComponent((searchTerm || name) + ' exercise proper form tutorial');
+  // Known exercise video IDs for common exercises
+  var knownIds = {
+    'bench press': 'SCVCLChPQFY', 'squat': 'aclHkVaku9U', 'deadlift': 'op9kVnSso6Q',
+    'pull up': 'eGo4IYlbE5g', 'push up': 'IODxDxX7oi4', 'plank': 'pSHjTRCQxIw',
+    'lunge': 'QOVaHwm-Q6U', 'shoulder press': 'qEwKCR5JCog', 'bicep curl': 'ykJmrZ5v0Oo',
+    'tricep': 'nRiJVZDpdL0', 'row': 'G8l_8chR5BE', 'lat pulldown': 'CAwf7n6Tuhs',
+    'burpee': 'dZgVxmf6jkA', 'mountain climber': 'nmwgirgXLYM', 'jumping jack': 'c4DAnQ6DtF8',
+    'hip thrust': 'SEdqd1n0cvg', 'leg press': '0Rl6JT4APBM', 'calf raise': 'gwLzBJYoWlA',
+    'crunch': 'Xyd_fa5zoEU', 'russian twist': 'wkD8rjkodUI', 'leg raise': 'l4kQd9eWclE',
+    'dumbbell': 'VA4e0NqyAy8', 'cable': 'vGzu0WIKONE', 'incline': 'DbFgADa2PL8'
+  };
+  var lname = (name || '').toLowerCase();
+  var videoId = null;
+  for (var k in knownIds) {
+    if (lname.indexOf(k) !== -1) { videoId = knownIds[k]; break; }
+  }
 
-function gifFallback(box,name){
-  var c=['#ff4500','#2979ff','#00e676','#ffd740','#ff6b9d'][name.charCodeAt(0)%5];
-  box.innerHTML='<div style="width:100%;height:140px;background:var(--bg3);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px">'
-    +'<div style="font-size:2.2rem">&#x1F4AA;</div>'
-    +'<div style="color:'+c+';font-family:Syne,sans-serif;font-weight:700;font-size:.95rem;text-align:center;padding:0 14px">'+name+'</div></div>';
+  if (videoId) {
+    box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + videoId
+      + '?rel=0&modestbranding=1&autoplay=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+  } else {
+    // Fallback: show a styled YouTube search link
+    box.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;width:100%;min-height:150px;text-align:center">'
+      + '<svg width="44" height="44" viewBox="0 0 24 24" fill="#ff0000"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.896 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.104 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l6-3.5-6-3.5v7z"/></svg>'
+      + '<div style="font-size:.88rem;font-weight:600;color:var(--text)">' + name + '</div>'
+      + '<a href="https://www.youtube.com/results?search_query=' + q + '" target="_blank" rel="noopener" '
+      + 'style="background:#ff0000;color:#fff;padding:9px 18px;border-radius:9px;text-decoration:none;font-size:.82rem;font-weight:700;font-family:Syne,sans-serif">Watch Tutorial on YouTube</a>'
+      + '<div style="font-size:.68rem;color:var(--muted)">Opens in YouTube</div></div>';
+  }
 }
 
 // DIET PLAN
