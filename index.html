@@ -1057,10 +1057,17 @@ function aiSend(section, prefill) {
   var el = addAiMsg(msgs, '', 'ai'); el.innerHTML = '<span class="spinner"></span>';
 
   var systemCtx = buildContext(section);
-  var history = S.aiHistory[section].map(function(m, i) {
-    if (i===0 && m.role==='user') return {role:'user', content:'[CONTEXT]\n'+systemCtx+'\n\n[USER]\n'+m.content};
-    return m;
-  });
+  // Build messages: inject full context into EVERY user turn (not just first)
+  // so AI always has the latest plan data
+  var history = [];
+  for (var hi = 0; hi < S.aiHistory[section].length; hi++) {
+    var hm = S.aiHistory[section][hi];
+    if (hm.role === 'user' && hi === 0) {
+      history.push({role:'user', content: systemCtx + '\n\nUSER REQUEST: ' + hm.content});
+    } else {
+      history.push(hm);
+    }
+  }
 
   var full = '';
   aiStream(history, function(chunk) {
@@ -1086,58 +1093,95 @@ function buildContext(section) {
   ['breakfast','lunch','snacks','dinner'].forEach(function(m){
     (S.log[m]||[]).forEach(function(f){tCal+=f.cal;tP+=f.protein;tC+=f.carbs;tF+=f.fat;});
   });
-
   var base = 'User: '+p.name+', age '+p.age+', '+p.gender+', '+p.weight+'kg, '+p.height+'cm. BMI: '+bmi+'.'
-    + ' Goal: '+p.goal.replace('_',' ')+'. Level: '+p.level+'. Diet pref: '+(p.diet||'mixed')+'.'
+    + ' Goal: '+p.goal.replace('_',' ')+'. Level: '+p.level+'. Diet: '+(p.diet||'mixed')+'.'
     + ' Calorie target: '+S.goal+' kcal/day.'
     + ' Today eaten: '+tCal+' kcal, P:'+tP.toFixed(0)+'g, C:'+tC.toFixed(0)+'g, F:'+tF.toFixed(0)+'g.';
 
   if (section === 'workout') {
-    var allEx = [];
-    if (S.plan&&S.plan.days) S.plan.days.forEach(function(d){(d.exercises||[]).forEach(function(e){allEx.push(e.name);});});
-    return 'You are an expert fitness trainer. Help modify the workout plan. Respond conversationally, then if changes are needed append on a new line:\n'
-      + 'RESULT_JSON:{"planTitle":"...","planDescription":"...","days":[{"day":"Day 1","focus":"...","exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"3-word giphy query"}]}]}\n'
-      + 'Current exercises: '+JSON.stringify(allEx)+'. '+base;
+    var currentPlan = S.plan ? JSON.stringify(S.plan) : 'none';
+    return 'You are a fitness trainer. The user wants to modify their workout plan.\n'
+      + 'CURRENT PLAN: '+currentPlan+'\n'
+      + 'USER PROFILE: '+base+'\n\n'
+      + 'INSTRUCTIONS:\n'
+      + '1. Reply with a SHORT friendly message (1-2 sentences) explaining the change.\n'
+      + '2. ALWAYS output the complete updated plan as JSON on a new line starting with RESULT_JSON: (no markdown, no code blocks)\n'
+      + '3. Keep the same number of days. Only change what the user asked. Keep gifSearch fields.\n'
+      + 'FORMAT: Your message here.\nRESULT_JSON:{"planTitle":"...","planDescription":"...","days":[{"day":"Day 1","focus":"...","exercises":[{"name":"...","sets":"3","reps":"12","rest":"60 sec","tips":"...","gifSearch":"exercise name"}]}]}';
   }
   if (section === 'diet') {
-    return 'You are an Indian nutritionist. Help modify the 7-day Indian diet plan. Respond conversationally, then if changes are needed append on a new line:\n'
-      + 'RESULT_JSON:{"dietTitle":"...","dietDescription":"...","days":[{"day":"Day 1","totalCal":'+S.goal+',"meals":[{"meal":"Breakfast","items":[{"name":"...","qty":"1 bowl","cal":200,"protein":8,"carbs":30,"fat":5,"notes":"..."}]}]}]}\n'
-      + 'Keep all 7 days. Use authentic Indian foods. '+base;
+    var currentDiet = S.diet ? JSON.stringify(S.diet) : 'none';
+    return 'You are an Indian nutritionist. The user wants to modify their 7-day diet plan.\n'
+      + 'CURRENT DIET: '+currentDiet+'\n'
+      + 'USER PROFILE: '+base+'\n\n'
+      + 'INSTRUCTIONS:\n'
+      + '1. Reply with a SHORT friendly message (1-2 sentences) explaining the change.\n'
+      + '2. ALWAYS output the complete updated 7-day plan as JSON on a new line starting with RESULT_JSON: (no markdown, no code blocks)\n'
+      + '3. Keep all 7 days. Use authentic Indian foods. Hit ~'+S.goal+' kcal daily.\n'
+      + 'FORMAT: Your message here.\nRESULT_JSON:{"dietTitle":"...","dietDescription":"...","days":[{"day":"Day 1","totalCal":'+S.goal+',"meals":[{"meal":"Breakfast","items":[{"name":"...","qty":"1 bowl","cal":200,"protein":8,"carbs":30,"fat":5,"notes":"..."}]}]}]}';
   }
   if (section === 'food') {
     var logSummary = ['breakfast','lunch','snacks','dinner'].map(function(m){
       var items = S.log[m]||[];
       return m+': '+(items.length?items.map(function(f){return f.name+'('+f.cal+'kcal)';}).join(', '):'empty');
     }).join('; ');
-    return 'You are an AI nutrition coach. Analyse the user\'s food log and provide insights. Be specific with numbers.\n'
-      + base + '\nToday\'s log: '+logSummary+'.';
+    return 'You are an AI nutrition coach. Give specific, helpful advice.\n'
+      + 'USER PROFILE: '+base+'\n'
+      + 'TODAY\'S FOOD LOG: '+logSummary+'\n'
+      + 'Give a clear, specific analysis with numbers. Be concise and actionable.';
   }
   return base;
 }
 
 function applyAiResult(section, el, full) {
+  // Find RESULT_JSON anywhere in the response (even if AI puts it mid-text)
   var cut = full.indexOf('RESULT_JSON:');
   var displayText = (cut !== -1 ? full.slice(0, cut) : full).trim();
+  // Clean up trailing colons/markers from display
+  displayText = displayText.replace(/\s*RESULT_JSON\s*:?\s*$/, '').trim();
 
+  var updated = false;
   if (cut !== -1) {
     var jsonStr = full.slice(cut + 12).trim();
-    // Remove anything after first top-level JSON object
+    // Strip markdown code fences if present
+    jsonStr = jsonStr.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
     var parsed = extractJSON(jsonStr);
     if (parsed) {
-      if (section === 'workout' && parsed.days) {
-        S.plan = parsed; S.activeDay = 0; save(); renderWorkout();
-        displayText += '\n\nWorkout plan updated!';
-        toast('Workout updated!', 'success');
-      } else if (section === 'diet' && parsed.days) {
-        S.diet = parsed; S.activeDietDay = 0; save(); renderDiet();
-        displayText += '\n\nDiet plan updated!';
-        toast('Diet plan updated!', 'success');
+      if (section === 'workout' && parsed.days && parsed.days.length > 0) {
+        S.plan = parsed; S.activeDay = 0; save();
+        renderWorkout();
+        flashSection('wo-content');
+        switchTab('workout');
+        updated = true;
+        displayText = displayText || 'Done! Your workout plan has been updated.';
+        toast('\u2713 Workout updated! Scroll up to see changes.', 'success');
+      } else if (section === 'diet' && parsed.days && parsed.days.length > 0) {
+        S.diet = parsed; S.activeDietDay = 0; save();
+        renderDiet();
+        flashSection('diet-content');
+        switchTab('diet');
+        updated = true;
+        displayText = displayText || 'Done! Your diet plan has been updated.';
+        toast('\u2713 Diet plan updated! Scroll up to see changes.', 'success');
       }
-    } else {
-      displayText += '\n\n(Could not parse plan update, please try again)';
+    }
+    if (!updated) {
+      displayText += '\n\n[Could not apply changes automatically. The AI response may have been malformed - try asking again.]';
     }
   }
-  el.textContent = displayText;
+  el.textContent = displayText || 'Done!';
+}
+
+function flashSection(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.transition = 'box-shadow 0.3s ease';
+  el.style.boxShadow = '0 0 0 3px var(--accent)';
+  setTimeout(function(){ el.style.boxShadow = '0 0 0 0px var(--accent)'; }, 800);
+  setTimeout(function(){ el.style.boxShadow = '0 0 0 3px var(--green)'; }, 1000);
+  setTimeout(function(){ el.style.boxShadow = ''; el.style.transition = ''; }, 1800);
+  // Scroll to top of section
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function addAiMsg(container, text, role) {
