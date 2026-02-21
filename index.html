@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0a">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--surface:#1e1e1e;--border:#2a2a2a;--accent:#ff4500;--accent2:#ff6b35;--green:#00e676;--text:#f0f0f0;--muted:#888;--r:16px}
@@ -697,44 +698,55 @@ function toast(msg, type) {
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 3200);
 }
 
-// AI via Anthropic API - works in claude.ai context (no API key needed here)
+// AI via Puter.js - free, no API key, works standalone
+// Puter auto-creates a guest session on first use
 async function aiChat(prompt) {
   var messages = typeof prompt === 'string' ? [{role:'user', content: prompt}] : prompt;
-  var res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({model:'claude-haiku-4-5-20251001', max_tokens:4096, messages:messages})
-  });
-  if (!res.ok) { var e = await res.json().catch(function(){return {};}); throw new Error(e.error&&e.error.message||'AI request failed ('+res.status+')'); }
-  var data = await res.json();
-  return (data.content && data.content[0] && data.content[0].text) || '';
+  try {
+    var resp = await puter.ai.chat(messages, {model: 'claude-sonnet-4-5'});
+    if (typeof resp === 'string') return resp;
+    if (resp && resp.message) {
+      var c = resp.message.content;
+      if (Array.isArray(c)) return c.map(function(b){return b.text||'';}).join('');
+      if (typeof c === 'string') return c;
+    }
+    if (resp && resp.content) {
+      var c2 = resp.content;
+      if (Array.isArray(c2)) return c2.map(function(b){return b.text||'';}).join('');
+    }
+    return String(resp || '');
+  } catch(e) {
+    // If auth needed, show friendly message
+    if (e && (String(e).indexOf('auth') !== -1 || String(e).indexOf('login') !== -1 || String(e).indexOf('sign') !== -1)) {
+      throw new Error('Please sign in to Puter.com (free) to use AI features, then reload this page.');
+    }
+    throw e;
+  }
 }
 
 async function aiStream(messages, onChunk) {
-  var res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({model:'claude-haiku-4-5-20251001', max_tokens:2048, stream:true, messages:messages})
-  });
-  if (!res.ok) { var e = await res.json().catch(function(){return {};}); throw new Error(e.error&&e.error.message||'AI stream failed ('+res.status+')'); }
-  var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
-  while (true) {
-    var tmp = await reader.read(); if (tmp.done) break;
-    buf += decoder.decode(tmp.value, {stream:true});
-    var lines = buf.split('\n'); buf = lines.pop();
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (!line.startsWith('data:')) continue;
-      var s = line.slice(5).trim(); if (s === '[DONE]') continue;
-      try { var ev = JSON.parse(s); if (ev.delta && ev.delta.text) onChunk(ev.delta.text); } catch(e) {}
+  // Puter stream - fall back to non-stream if stream fails
+  try {
+    var stream = await puter.ai.chat(messages, {model: 'claude-sonnet-4-5', stream: true});
+    for await (var part of stream) {
+      var t = '';
+      if (typeof part === 'string') t = part;
+      else if (part && part.text) t = part.text;
+      else if (part && part.delta && part.delta.text) t = part.delta.text;
+      else if (part && part.message && part.message.content) {
+        var c = part.message.content;
+        t = Array.isArray(c) ? c.map(function(b){return b.text||'';}).join('') : (c||'');
+      }
+      if (t) onChunk(t);
+    }
+  } catch(streamErr) {
+    // Fallback: non-streaming
+    var text = await aiChat(messages);
+    // Simulate streaming by chunking the response
+    var words = text.split(' ');
+    for (var i = 0; i < words.length; i++) {
+      onChunk((i === 0 ? '' : ' ') + words[i]);
+      await new Promise(function(r){ setTimeout(r, 15); });
     }
   }
 }
@@ -774,7 +786,22 @@ async function generateAll() {
     await generateDiet();
     hideLoading(); initApp();
   } catch(e) {
-    hideLoading(); toast('Error generating plan. Try again.', 'error'); initApp(true);
+    hideLoading();
+    var msg = e && e.message ? e.message : 'Unknown error';
+    toast(msg, 'error');
+    // Show error on screen too
+    document.getElementById('onboarding').style.display = 'flex';
+    document.querySelectorAll('.ob-slide').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById('ob3').classList.add('active');
+    // Add error note
+    var errDiv = document.getElementById('ai-error-note');
+    if (!errDiv) {
+      errDiv = document.createElement('div');
+      errDiv.id = 'ai-error-note';
+      errDiv.style.cssText = 'background:rgba(255,69,0,.12);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;font-size:.82rem;color:var(--accent);line-height:1.5;margin-top:-8px';
+      document.getElementById('ob3').insertBefore(errDiv, document.getElementById('ob3').firstChild);
+    }
+    errDiv.innerHTML = '<strong>AI Error:</strong> ' + msg + '<br><span style="color:var(--muted)">Make sure you\'re signed into <a href="https://puter.com" target="_blank" style="color:#64b5f6">puter.com</a> in this browser, then try again.</span>';
   }
 }
 
@@ -1046,8 +1073,9 @@ function aiSend(section, prefill) {
     applyAiResult(section, el, full);
     S.aiHistory[section].push({role:'assistant', content:full});
     save();
-  }).catch(function() {
-    el.textContent = 'Something went wrong. Please try again.';
+  }).catch(function(err) {
+    var msg = err && err.message ? err.message : 'Something went wrong';
+    el.textContent = 'Error: ' + msg + '\n\nIf this keeps happening, open puter.com in this browser and sign in (free), then reload.';
   });
 }
 
