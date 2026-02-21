@@ -94,7 +94,7 @@ Four tabs, each a `<div class="panel" id="panel-{name}">`:
 
 **Why:** Completely free, no API key, no signup, no login. Works cross-origin from any browser. Uses GPT-4o-class models (`openai-large`).
 
-**Endpoint:** `https://text.pollinations.ai/openai`
+**Endpoint:** `https://text.pollinations.ai/v1/chat/completions`
 
 **Docs:** https://pollinations.ai
 
@@ -103,7 +103,7 @@ Four tabs, each a `<div class="panel" id="panel-{name}">`:
 ```js
 async function aiChat(prompt) {
   // prompt can be a string OR an array of {role, content} messages
-  var res = await fetch('https://text.pollinations.ai/openai', {
+  var res = await fetch('https://text.pollinations.ai/v1/chat/completions', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
