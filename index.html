@@ -746,27 +746,43 @@ function nextOb(n) {
 
 function stripMd(t) {
   t = t.trim();
-  if (t.indexOf('```') === -1) return t;
-  var m = t.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return m ? m[1].trim() : t;
+  t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+  return t.trim();
 }
 
 function extractJSON(text) {
-  // Try direct parse first
+  if (!text) return null;
   var s = stripMd(text);
   try { return JSON.parse(s); } catch(e) {}
-  // Find first { ... } block
-  var start = text.indexOf('{');
+  // Find opening brace
+  var start = s.indexOf('{');
+  if (start === -1) start = text.indexOf('{');
   if (start === -1) return null;
-  // Find matching closing brace
-  var depth = 0;
-  for (var i = start; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}') { depth--; if (depth === 0) { try { return JSON.parse(text.slice(start, i+1)); } catch(e) { return null; } } }
+  var src = start !== -1 ? s : text;
+  // Scan for matching closing brace
+  var depth = 0, last = -1;
+  for (var i = start; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) { last = i; break; } }
   }
+  if (last !== -1) {
+    try { return JSON.parse(src.slice(start, last + 1)); } catch(e) {}
+  }
+  // Truncated response — try to close open brackets
+  var partial = src.slice(start);
+  var opens = 0, aopens = 0;
+  for (var j = 0; j < partial.length; j++) {
+    if (partial[j] === '{') opens++;
+    else if (partial[j] === '}') opens = Math.max(0, opens - 1);
+    else if (partial[j] === '[') aopens++;
+    else if (partial[j] === ']') aopens = Math.max(0, aopens - 1);
+  }
+  var trimmed = partial.replace(/,?\s*"[^"]*$/, '').replace(/,?\s*[\w"]+\s*:\s*[^,}\]]*$/, '');
+  for (var a = 0; a < aopens; a++) trimmed += ']';
+  for (var o = 0; o < opens; o++) trimmed += '}';
+  try { return JSON.parse(trimmed); } catch(e) {}
   return null;
 }
-
 function toast(msg, type) {
   var el = document.createElement('div');
   el.className = 'toast' + (type ? ' '+type : '');
@@ -786,7 +802,7 @@ async function aiChat(prompt, maxTokens) {
     return {role: m.role === 'assistant' ? 'model' : 'user', parts:[{text: m.content}]};
   });
   var body = {contents: messages};
-  if (maxTokens) body.generationConfig = {maxOutputTokens: maxTokens};
+  body.generationConfig = {maxOutputTokens: maxTokens || 8192};
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + key;
   var res = await fetch(url, {
     method: 'POST',
@@ -906,7 +922,7 @@ async function generatePlan() {
   var text = '', parsed = null;
   for (var attempt = 0; attempt < 3; attempt++) {
     try {
-      text = await aiChat(prompt, 3000);
+      text = await aiChat(prompt, 8192);
       parsed = extractJSON(text);
       if (parsed && parsed.days && parsed.days.length > 0) break;
     } catch(e) { if (attempt === 2) throw e; }
@@ -949,7 +965,7 @@ async function generateDiet() {
     var text = '', parsed = null;
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        text = await aiChat(prompt, 3000);
+        text = await aiChat(prompt, 8192);
         parsed = extractJSON(text);
         if (parsed && parsed.days && parsed.days.length > 0) break;
       } catch(e2) { if (attempt === 2) throw e2; }
